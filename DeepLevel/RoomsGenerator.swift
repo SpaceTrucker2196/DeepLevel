@@ -32,13 +32,8 @@ final class RoomsGenerator: DungeonGenerating {
         // Generate secret rooms
         generateSecretRooms(config: config, rng: &rng, tiles: &tiles, rooms: &rooms)
         
-        // Determine player start
-        let start: (Int, Int)
-        if let first = rooms.first {
-            start = first.center
-        } else {
-            start = (config.width / 2, config.height / 2)
-        }
+        // Determine player start location
+        let start = determinePlayerStart(rooms: rooms, config: config)
         
         var map = DungeonMap(width: config.width, height: config.height, tiles: tiles.map { Tile(kind: $0.kind) }, playerStart: start, rooms: rooms)
         return map
@@ -297,6 +292,24 @@ final class RoomsGenerator: DungeonGenerating {
                 tiles[dx + dy*config.width].kind = .doorSecret
             }
             rooms.append(secret)
+        }
+    }
+    
+    /// Determines the optimal player starting position.
+    ///
+    /// Selects the center of the first room if available, otherwise
+    /// defaults to the center of the map for fallback positioning.
+    ///
+    /// - Parameters:
+    ///   - rooms: Array of generated rooms
+    ///   - config: Generation configuration for map dimensions
+    /// - Returns: Player starting coordinates as (x, y) tuple
+    /// - Complexity: O(1)
+    private func determinePlayerStart(rooms: [Rect], config: DungeonConfig) -> (Int, Int) {
+        if let first = rooms.first {
+            return first.center
+        } else {
+            return (config.width / 2, config.height / 2)
         }
     }
 }
