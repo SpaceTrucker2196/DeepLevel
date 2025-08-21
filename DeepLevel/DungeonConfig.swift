@@ -1,27 +1,60 @@
 import Foundation
 
+/// Defines the available dungeon generation algorithms.
+///
+/// Each algorithm produces dungeons with different characteristics and layouts,
+/// allowing for varied gameplay experiences and map types.
+///
+/// - Since: 1.0.0
 enum GenerationAlgorithm {
+    /// Traditional room-and-corridor generation with rectangular rooms.
     case roomsCorridors
+    
+    /// Binary space partitioning for more organic room layouts.
     case bsp
+    
+    /// Cellular automata for cave-like organic structures.
     case cellular
 }
 
+/// Configuration parameters for dungeon generation algorithms.
+///
+/// Contains all settings that control how dungeons are generated, including
+/// size constraints, algorithm-specific parameters, and randomization options.
+/// Provides sensible defaults for immediate use while allowing full customization.
+///
+/// - Since: 1.0.0
 struct DungeonConfig {
+    /// Width of the generated dungeon in tiles.
     var width: Int = 80
+    
+    /// Height of the generated dungeon in tiles.
     var height: Int = 50
+    
+    /// Maximum number of rooms to attempt during generation.
     var maxRooms: Int = 20
+    
+    /// Minimum size for room dimensions.
     var roomMinSize: Int = 4
+    
+    /// Maximum size for room dimensions.
     var roomMaxSize: Int = 10
+    
+    /// Optional seed for deterministic generation. If nil, uses random seed.
     var seed: UInt64? = nil
+    
+    /// The generation algorithm to use.
     var algorithm: GenerationAlgorithm = .roomsCorridors
     
-    // Cellular automata params
+    /// Initial fill probability for cellular automata algorithm (0.0 to 1.0).
     var cellularFillProb: Double = 0.45
+    
+    /// Number of smoothing iterations for cellular automata algorithm.
     var cellularSteps: Int = 5
     
-    // BSP depth
+    /// Maximum recursion depth for binary space partitioning algorithm.
     var bspMaxDepth: Int = 5
     
-    // Secret room probability
+    /// Probability of generating secret rooms (0.0 to 1.0).
     var secretRoomChance: Double = 0.08
 }
