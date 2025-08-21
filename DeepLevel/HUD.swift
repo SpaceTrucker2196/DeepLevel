@@ -1,44 +1,5 @@
 import SpriteKit
 
-/// Configuration for HUD display updates.
-///
-/// Groups related parameters for HUD updates to reduce parameter coupling
-/// and improve maintainability.
-///
-/// - Since: 1.0.0
-struct HUDDisplayInfo {
-    /// Current generation seed, or nil for random generation
-    let seed: UInt64?
-    
-    /// Player's current health points
-    let hp: Int
-    
-    /// Active dungeon generation algorithm
-    let algo: GenerationAlgorithm
-    
-    /// Camera view size for positioning calculations
-    let size: CGSize
-    
-    /// Margin from screen edges for safe positioning
-    let safeInset: CGFloat
-    
-    /// Creates HUD display information with default safe inset.
-    ///
-    /// - Parameters:
-    ///   - seed: Current generation seed
-    ///   - hp: Player health points
-    ///   - algo: Generation algorithm
-    ///   - size: Camera view size
-    ///   - safeInset: Safe area inset (defaults to 8)
-    init(seed: UInt64?, hp: Int, algo: GenerationAlgorithm, size: CGSize, safeInset: CGFloat = 8) {
-        self.seed = seed
-        self.hp = hp
-        self.algo = algo
-        self.size = size
-        self.safeInset = safeInset
-    }
-}
-
 /// Heads-up display (HUD) node for showing game information.
 ///
 /// Provides an overlay interface displaying current game state including
@@ -78,19 +39,24 @@ final class HUD: SKNode {
     /// and camera view size. Arranges labels in a vertical stack at the
     /// top-left corner with appropriate safe area spacing.
     ///
-    /// - Parameter displayInfo: Configuration containing all display parameters
+    /// - Parameters:
+    ///   - seed: Current generation seed, or nil for random generation
+    ///   - hp: Player's current health points
+    ///   - algo: Active dungeon generation algorithm
+    ///   - size: Camera view size for positioning calculations
+    ///   - safeInset: Margin from screen edges for safe positioning
     /// - Complexity: O(1)
-    func update(with displayInfo: HUDDisplayInfo) {
-        seedLabel.text = "Seed: \(displayInfo.seed.map(String.init) ?? "random")"
-        hpLabel.text = "HP: \(displayInfo.hp)"
-        algoLabel.text = "Algo: \(algoName(displayInfo.algo))"
+    func update(seed: UInt64?, hp: Int, algo: GenerationAlgorithm, size: CGSize, safeInset: CGFloat = 8) {
+        seedLabel.text = "Seed: \(seed.map(String.init) ?? "random")"
+        hpLabel.text = "HP: \(hp)"
+        algoLabel.text = "Algo: \(algoName(algo))"
         
         // Layout stack at top-left of the camera's coordinate space
         let labels = [seedLabel, hpLabel, algoLabel]
         for (i, lbl) in labels.enumerated() {
             lbl.position = CGPoint(
-                x: -displayInfo.size.width/2 + displayInfo.safeInset,
-                y: displayInfo.size.height/2 - displayInfo.safeInset - CGFloat(i) * (lbl.fontSize + 4)
+                x: -size.width/2 + safeInset,
+                y: size.height/2 - safeInset - CGFloat(i) * (lbl.fontSize + 4)
             )
         }
     }

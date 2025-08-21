@@ -25,22 +25,6 @@ import GameplayKit
 /// - Note: This is a complex scene class managing multiple game systems
 /// - Warning: Ensure proper initialization through didMove(to:) before use
 final class GameScene: SKScene {
-    
-    // MARK: - Constants
-    private enum GameConstants {
-        static let tileSize: CGFloat = 24
-        static let cameraLerpFactor: CGFloat = 0.18
-        static let fieldOfViewRadius: Int = 10
-        static let monsterPathUpdateInterval: TimeInterval = 1.0
-        static let entitySizeRatio: CGFloat = 0.8
-        static let playerAnimationDuration: TimeInterval = 0.12
-        static let maxMonsterSpawnAttempts: Int = 50
-        static let monsterCount: Int = 5
-        static let attackAnimationDuration: TimeInterval = 0.05
-        static let attackAnimationScale: CGFloat = 1.2
-        static let hudSafeAreaInset: CGFloat = 8
-    }
-    
     // MARK: - Config / State
     private var config = DungeonConfig()
     private var map: DungeonMap?
@@ -57,9 +41,11 @@ final class GameScene: SKScene {
     // Camera / HUD
     private var camNode: SKCameraNode?
     private let hud = HUD()
+    private var cameraLerp: CGFloat = 0.18
     
     // FOV
     private var fogNode: SKSpriteNode?
+    private let fovRadius: Int = 10
     
     // Algorithm rotation
     private var pendingAlgoIndex = 0
@@ -70,6 +56,10 @@ final class GameScene: SKScene {
     
     // Monster path timing
     private var lastMonsterPathUpdate: TimeInterval = 0
+    private var monsterPathInterval: TimeInterval = 1.0
+    
+    // Sizing
+    private let tileSize: CGFloat = 24
     
     // Debug
     private let debugLogging = false
@@ -130,13 +120,13 @@ final class GameScene: SKScene {
     
     private func buildTileSetIfNeeded() {
         guard tileRefs == nil || tileMap == nil else { return }
-        let (tileSet, refs) = TileSetBuilder.build(tileSize: GameConstants.tileSize)
+        let (tileSet, refs) = TileSetBuilder.build(tileSize: tileSize)
         tileRefs = refs
         if tileMap == nil {
             let mapNode = SKTileMapNode(tileSet: tileSet,
                                         columns: 1,
                                         rows: 1,
-                                        tileSize: CGSize(width: GameConstants.tileSize, height: GameConstants.tileSize))
+                                        tileSize: CGSize(width: tileSize, height: tileSize))
             mapNode.anchorPoint = CGPoint(x: 0, y: 0)
             mapNode.zPosition = 0
             addChild(mapNode)
@@ -174,29 +164,6 @@ final class GameScene: SKScene {
         updateHUD()
     }
     
-    // MARK: - Tile Management
-    
-    /// Gets the appropriate tile group for a given tile.
-    ///
-    /// - Parameter tile: The tile to get the group for
-    /// - Returns: The SKTileGroup for rendering this tile
-    private func tileGroup(for tile: Tile) -> SKTileGroup? {
-        guard let tileRefs = tileRefs else { return nil }
-        
-        switch tile.kind {
-        case .floor:
-            let maxIndex = tileRefs.floorVariants.count - 1
-            let clamped = max(0, min(maxIndex, tile.variant))
-            return tileRefs.floorVariants[clamped]
-        case .wall: 
-            return tileRefs.wall
-        case .doorClosed: 
-            return tileRefs.door
-        case .doorSecret: 
-            return tileRefs.secretDoor
-        }
-    }
-    
     private func buildTileMap() {
         guard let map = map,
               let tileRefs = tileRefs else { return }
@@ -210,16 +177,24 @@ final class GameScene: SKScene {
         for y in 0..<map.height {
             for x in 0..<map.width {
                 let tile = map.tiles[map.index(x: x, y: y)]
-                if let group = tileGroup(for: tile) {
-                    tileMap.setTileGroup(group, forColumn: x, row: y)
+                let group: SKTileGroup
+                switch tile.kind {
+                case .floor:
+                    let maxIndex = tileRefs.floorVariants.count - 1
+                    let clamped = max(0, min(maxIndex, tile.variant))
+                    group = tileRefs.floorVariants[clamped]
+                case .wall: group = tileRefs.wall
+                case .doorClosed: group = tileRefs.door
+                case .doorSecret: group = tileRefs.secretDoor
                 }
+                tileMap.setTileGroup(group, forColumn: x, row: y)
             }
         }
         
         fogNode?.removeFromParent()
         let fog = SKSpriteNode(color: .black,
-                               size: CGSize(width: CGFloat(map.width)*GameConstants.tileSize,
-                                            height: CGFloat(map.height)*GameConstants.tileSize))
+                               size: CGSize(width: CGFloat(map.width)*tileSize,
+                                            height: CGFloat(map.height)*tileSize))
         fog.anchorPoint = CGPoint(x: 0, y: 0)
         fog.alpha = 0.0
         addChild(fog)
@@ -230,13 +205,22 @@ final class GameScene: SKScene {
     
     private func refreshTile(x: Int, y: Int) {
         guard let map = map,
+              let tileRefs = tileRefs,
               let tileMap = tileMap,
               map.inBounds(x, y) else { return }
         let idx = map.index(x: x, y: y)
         let tile = map.tiles[idx]
-        if let group = tileGroup(for: tile) {
-            tileMap.setTileGroup(group, forColumn: x, row: y)
+        let group: SKTileGroup
+        switch tile.kind {
+        case .floor:
+            let maxIndex = tileRefs.floorVariants.count - 1
+            let clamped = max(0, min(maxIndex, tile.variant))
+            group = tileRefs.floorVariants[clamped]
+        case .wall: group = tileRefs.wall
+        case .doorClosed: group = tileRefs.door
+        case .doorSecret: group = tileRefs.secretDoor
         }
+        tileMap.setTileGroup(group, forColumn: x, row: y)
     }
     
     // MARK: - Entities
@@ -248,10 +232,9 @@ final class GameScene: SKScene {
                        gridX: start.0,
                        gridY: start.1,
                        color: .systemRed,
-                       size: CGSize(width: GameConstants.tileSize*GameConstants.entitySizeRatio, 
-                                   height: GameConstants.tileSize*GameConstants.entitySizeRatio))
+                       size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
         addChild(p)
-        p.moveTo(gridX: p.gridX, gridY: p.gridY, tileSize: GameConstants.tileSize, animated: false)
+        p.moveTo(gridX: p.gridX, gridY: p.gridY, tileSize: tileSize, animated: false)
         player = p
     }
     
@@ -260,17 +243,17 @@ final class GameScene: SKScene {
               let player = player else { return }
         monsters.forEach { $0.removeFromParent() }
         monsters = []
-        for _ in 0..<GameConstants.monsterCount {
+        for _ in 0..<5 {
             var attempts = 0
-            while attempts < GameConstants.maxMonsterSpawnAttempts {
+            while attempts < 50 {
                 attempts += 1
                 let x = Int.random(in: 0..<map.width)
                 let y = Int.random(in: 0..<map.height)
                 let t = map.tiles[map.index(x: x, y: y)]
                 if t.kind == .floor && (x,y) != (player.gridX, player.gridY) {
-                    let m = Monster(gridX: x, gridY: y, tileSize: GameConstants.tileSize)
+                    let m = Monster(gridX: x, gridY: y, tileSize: tileSize)
                     addChild(m)
-                    m.moveTo(gridX: x, gridY: y, tileSize: GameConstants.tileSize, animated: false)
+                    m.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
                     monsters.append(m)
                     break
                 }
@@ -281,14 +264,10 @@ final class GameScene: SKScene {
     // MARK: - HUD / Camera
     private func updateHUD() {
         guard let player = player else { return }
-        let displayInfo = HUDDisplayInfo(
-            seed: currentSeed,
-            hp: player.hp,
-            algo: algorithms[pendingAlgoIndex % algorithms.count],
-            size: size,
-            safeInset: GameConstants.hudSafeAreaInset
-        )
-        hud.update(with: displayInfo)
+        hud.update(seed: currentSeed,
+                   hp: player.hp,
+                   algo: algorithms[pendingAlgoIndex % algorithms.count],
+                   size: size)
     }
     
     override func didChangeSize(_ oldSize: CGSize) {
@@ -299,9 +278,9 @@ final class GameScene: SKScene {
     private func updateCamera() {
         guard let player = player,
               let camNode = camNode else { return }
-        let target = CGPoint(x: CGFloat(player.gridX)*GameConstants.tileSize + GameConstants.tileSize/2,
-                             y: CGFloat(player.gridY)*GameConstants.tileSize + GameConstants.tileSize/2)
-        camNode.position = camNode.position.lerp(to: target, t: GameConstants.cameraLerpFactor)
+        let target = CGPoint(x: CGFloat(player.gridX)*tileSize + tileSize/2,
+                             y: CGFloat(player.gridY)*tileSize + tileSize/2)
+        camNode.position = camNode.position.lerp(to: target, t: cameraLerp)
     }
     
     // MARK: - Game Loop
@@ -315,32 +294,13 @@ final class GameScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         updatePlayerMovement()
         updateCamera()
-        if currentTime - lastMonsterPathUpdate > GameConstants.monsterPathUpdateInterval {
+        if currentTime - lastMonsterPathUpdate > monsterPathInterval {
             updateMonsters()
             lastMonsterPathUpdate = currentTime
         }
     }
     
     // MARK: - Movement / Combat
-    
-    /// Checks if a tile allows door interaction.
-    ///
-    /// - Parameter tile: The tile to check
-    /// - Returns: `true` if the tile is a door that can be opened
-    private func canOpenDoor(_ tile: Tile) -> Bool {
-        tile.kind == .doorClosed || tile.kind == .doorSecret
-    }
-    
-    /// Checks if a position contains a monster.
-    ///
-    /// - Parameters:
-    ///   - x: X coordinate to check
-    ///   - y: Y coordinate to check
-    /// - Returns: The monster at the position, or nil if none exists
-    private func monsterAt(x: Int, y: Int) -> Monster? {
-        monsters.first(where: { $0.gridX == x && $0.gridY == y })
-    }
-    
     /// Processes pending player movement commands.
     ///
     /// Executes queued movement direction and resets the movement state
@@ -369,7 +329,7 @@ final class GameScene: SKScene {
         let idx = map.index(x: nx, y: ny)
         var tile = map.tiles[idx]
         
-        if canOpenDoor(tile) {
+        if tile.kind == .doorClosed || tile.kind == .doorSecret {
             tile.kind = .floor
             map.tiles[idx] = tile
             self.map = map
@@ -379,11 +339,11 @@ final class GameScene: SKScene {
         }
         guard !tile.blocksMovement else { return }
         
-        if let monster = monsterAt(x: nx, y: ny) {
+        if let monster = monsters.first(where: { $0.gridX == nx && $0.gridY == ny }) {
             attackMonster(monster)
             return
         }
-        player.moveTo(gridX: nx, gridY: ny, tileSize: GameConstants.tileSize)
+        player.moveTo(gridX: nx, gridY: ny, tileSize: tileSize)
         self.map = map
         recomputeFOV()
     }
@@ -391,8 +351,8 @@ final class GameScene: SKScene {
     private func attackMonster(_ monster: Monster) {
         monster.hp -= 1
         monster.run(.sequence([
-            .scale(to: GameConstants.attackAnimationScale, duration: GameConstants.attackAnimationDuration),
-            .scale(to: 1.0, duration: GameConstants.attackAnimationDuration)
+            .scale(to: 1.2, duration: 0.05),
+            .scale(to: 1.0, duration: 0.05)
         ]))
         if monster.hp <= 0 {
             monster.removeFromParent()
@@ -419,7 +379,7 @@ final class GameScene: SKScene {
                     player.hp -= 1
                     updateHUD()
                 } else {
-                    monster.moveTo(gridX: next.0, gridY: next.1, tileSize: GameConstants.tileSize)
+                    monster.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
                 }
             }
         }
@@ -432,7 +392,7 @@ final class GameScene: SKScene {
         FOV.compute(map: &map,
                     originX: player.gridX,
                     originY: player.gridY,
-                    radius: GameConstants.fieldOfViewRadius)
+                    radius: fovRadius)
         self.map = map
         // (Optional) If you want a real fog overlay, you'd update a mask here.
     }
@@ -452,8 +412,8 @@ final class GameScene: SKScene {
               let touch = touches.first,
               let view = self.view else { return }
         let location = touch.location(in: self)
-        let px = CGFloat(player.gridX)*GameConstants.tileSize + GameConstants.tileSize/2
-        let py = CGFloat(player.gridY)*GameConstants.tileSize + GameConstants.tileSize/2
+        let px = CGFloat(player.gridX)*tileSize + tileSize/2
+        let py = CGFloat(player.gridY)*tileSize + tileSize/2
         let dx = location.x - px
         let dy = location.y - py
         if abs(dx) > abs(dy) {

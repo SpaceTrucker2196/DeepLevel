@@ -78,8 +78,7 @@ class Entity: SKSpriteNode {
         let target = CGPoint(x: CGFloat(gridX)*tileSize + tileSize/2,
                              y: CGFloat(gridY)*tileSize + tileSize/2)
         if animated {
-            let animationDuration: TimeInterval = 0.12
-            run(SKAction.move(to: target, duration: animationDuration))
+            run(SKAction.move(to: target, duration: 0.12))
         } else {
             position = target
         }
@@ -93,13 +92,6 @@ class Entity: SKSpriteNode {
 ///
 /// - Since: 1.0.0
 final class Monster: Entity {
-    
-    // MARK: - Constants
-    private enum MonsterConstants {
-        static let defaultHealth: Int = 3
-        static let entitySizeRatio: CGFloat = 0.8
-    }
-    
     /// The calculated path as a sequence of grid coordinates.
     var lastPath: [(Int,Int)] = []
     
@@ -118,13 +110,8 @@ final class Monster: Entity {
     ///   - gridY: Initial Y coordinate on the dungeon grid
     ///   - tileSize: Size of tiles for sprite sizing
     init(gridX: Int, gridY: Int, tileSize: CGFloat) {
-        super.init(kind: .monster, 
-                  gridX: gridX, 
-                  gridY: gridY, 
-                  color: .systemGreen, 
-                  size: CGSize(width: tileSize*MonsterConstants.entitySizeRatio, 
-                              height: tileSize*MonsterConstants.entitySizeRatio))
-        hp = MonsterConstants.defaultHealth
+        super.init(kind: .monster, gridX: gridX, gridY: gridY, color: .systemGreen, size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
+        hp = 3
     }
     required init?(coder: NSCoder) { fatalError() }
 }
