@@ -1,0 +1,57 @@
+module: DeepLevel
+min_acl: internal
+swift_version: 6.1.2
+theme: apple
+output: Docs/API
+clean: true
+author: DeepLevel Contributors
+github_url: https://github.com/SpaceTrucker2196/DeepLevel
+exclude: 
+  - "Docs/**"
+  - "DeepLevelTests/**"
+  - "DeepLevelUITests/**"
+
+custom_categories:
+  - name: Core Types
+    children:
+      - TileKind
+      - Tile
+      - DungeonMap
+      - Rect
+      - Entity
+      - Monster
+      
+  - name: Dungeon Generation
+    children:
+      - DungeonGenerating
+      - DungeonGenerator
+      - DungeonConfig
+      - GenerationAlgorithm
+      - RoomsGenerator
+      - BSPGenerator
+      - CellularAutomataGenerator
+      
+  - name: Game Systems
+    children:
+      - GameScene
+      - HUD
+      - Pathfinder
+      - FOV
+      - TileSetBuilder
+      
+  - name: Utilities
+    children:
+      - SeededGenerator
+      - PersistenceController
+      
+  - name: User Interface
+    children:
+      - DeepLevelApp
+      - ContentView
+      - GameViewController
+      
+  - name: Testing
+    children:
+      - DeepLevelTests
+      - DeepLevelUITests
+      - DeepLevelUITestsLaunchTests
