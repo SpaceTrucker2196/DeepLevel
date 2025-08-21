@@ -1,10 +1,26 @@
 import Foundation
 import GameplayKit
 
+/// Orchestrates dungeon generation using various algorithms and post-processing.
+///
+/// Acts as the main coordinator for dungeon creation, selecting the appropriate
+/// generation algorithm based on configuration and applying visual enhancements
+/// like floor variants using procedural noise.
+///
+/// - Since: 1.0.0
 final class DungeonGenerator {
+    /// The random number generator used for all generation decisions.
     private var rng: RandomNumberGenerator
+    
+    /// Configuration parameters controlling generation behavior.
     private let config: DungeonConfig
     
+    /// Creates a new dungeon generator with the specified configuration.
+    ///
+    /// Initializes the appropriate random number generator based on whether
+    /// a seed is provided in the configuration for deterministic generation.
+    ///
+    /// - Parameter config: Configuration parameters for dungeon generation
     init(config: DungeonConfig) {
         self.config = config
         if let seed = config.seed {
@@ -14,6 +30,14 @@ final class DungeonGenerator {
         }
     }
     
+    /// Generates a complete dungeon using the configured algorithm.
+    ///
+    /// Selects the appropriate generation algorithm, creates the basic dungeon
+    /// structure, then applies visual enhancements like floor texture variants
+    /// using procedural noise for realistic appearance.
+    ///
+    /// - Returns: A fully generated dungeon map ready for gameplay
+    /// - Complexity: Algorithm-dependent, typically O(width * height)
     func generate() -> DungeonMap {
         var localRng = rng
         let generator: DungeonGenerating
@@ -27,6 +51,16 @@ final class DungeonGenerator {
         return map
     }
     
+    /// Applies visual variety to floor tiles using Perlin noise.
+    ///
+    /// Uses GameplayKit's Perlin noise to create natural-looking variation
+    /// in floor tile appearance, adding visual interest while maintaining
+    /// gameplay functionality.
+    ///
+    /// - Parameters:
+    ///   - map: The dungeon map to modify
+    ///   - rng: Random number generator for noise seed generation
+    /// - Complexity: O(width * height)
     private func applyFloorVariants(_ map: inout DungeonMap, rng: inout RandomNumberGenerator) {
         // Use Perlin noise for variants
         let source = GKPerlinNoiseSource(frequency: 0.08, octaveCount: 3, persistence: 0.5, lacunarity: 2.0, seed: Int32(config.seed ?? UInt64.random(in: 0...UInt64(UInt32.max), using: &rng)))
