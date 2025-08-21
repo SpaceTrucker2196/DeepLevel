@@ -62,10 +62,34 @@ final class DungeonGenerator {
     ///   - rng: Random number generator for noise seed generation
     /// - Complexity: O(width * height)
     private func applyFloorVariants(_ map: inout DungeonMap, rng: inout RandomNumberGenerator) {
-        // Use Perlin noise for variants
-        let source = GKPerlinNoiseSource(frequency: 0.08, octaveCount: 3, persistence: 0.5, lacunarity: 2.0, seed: Int32(config.seed ?? UInt64.random(in: 0...UInt64(UInt32.max), using: &rng)))
+        // Derive a safe Int32 seed (avoid trapping on Int32 init)
+        let seed32: Int32
+        if let userSeed = config.seed {
+            // Mix / hash userSeed to spread bits, then take lower 32 bits
+            var z = userSeed &+ 0x9E3779B97F4A7C15
+            z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+            z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+            let u32 = UInt32(truncatingIfNeeded: z)
+            seed32 = Int32(bitPattern: u32)
+        } else {
+            seed32 = Int32.random(in: Int32.min...Int32.max, using: &rng)
+        }
+        
+        let source = GKPerlinNoiseSource(
+            frequency: 0.08,
+            octaveCount: 3,
+            persistence: 0.5,
+            lacunarity: 2.0,
+            seed: seed32
+        )
         let noise = GKNoise(source)
-        let sample = GKNoiseMap(noise, size: vector_double2( Double(map.width), Double(map.height)), origin: vector_double2(0,0), sampleCount: vector_int2(Int32(map.width), Int32(map.height)), seamless: false)
+        let sample = GKNoiseMap(
+            noise,
+            size: vector_double2(Double(map.width), Double(map.height)),
+            origin: vector_double2(0,0),
+            sampleCount: vector_int2(Int32(map.width), Int32(map.height)),
+            seamless: false
+        )
         for y in 0..<map.height {
             for x in 0..<map.width {
                 let idx = map.index(x: x, y: y)
