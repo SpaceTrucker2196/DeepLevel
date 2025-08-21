@@ -1,6 +1,29 @@
 import SpriteKit
 import GameplayKit
 
+/// The main game scene managing dungeon exploration gameplay.
+///
+/// Coordinates all aspects of the dungeon exploration experience including
+/// procedural generation, real-time rendering, entity management, AI behavior,
+/// field-of-view calculations, and user interaction. Serves as the central
+/// controller integrating multiple game systems for cohesive gameplay.
+///
+/// The scene supports multiple generation algorithms, player movement with
+/// collision detection, monster AI with pathfinding, dynamic lighting through
+/// fog-of-war, and interactive camera controls. All operations are optimized
+/// for real-time performance in SpriteKit.
+///
+/// ## Key Systems
+/// - **Generation**: Multiple dungeon algorithms with configurable parameters
+/// - **Rendering**: Efficient tile-based rendering with texture caching
+/// - **Entities**: Player character and AI-controlled monsters
+/// - **Field of View**: Realistic line-of-sight with exploration tracking
+/// - **Input**: Touch and keyboard input for movement and interaction
+/// - **Camera**: Smooth following camera with HUD overlay
+///
+/// - Since: 1.0.0
+/// - Note: This is a complex scene class managing multiple game systems
+/// - Warning: Ensure proper initialization through didMove(to:) before use
 final class GameScene: SKScene {
     // MARK: - Config / State
     private var config = DungeonConfig()
@@ -45,6 +68,13 @@ final class GameScene: SKScene {
     private var initialized = false
     
     // MARK: - Scene Lifecycle
+    /// Initializes the game scene when first presented to a view.
+    ///
+    /// Sets up all game systems including camera, tile rendering, dungeon
+    /// generation, and HUD display. Uses an initialization guard to prevent
+    /// duplicate setup if the scene is re-presented.
+    ///
+    /// - Parameter view: The SKView that will present this scene
     override func didMove(to view: SKView) {
         guard !initialized else { return }
         initialized = true
@@ -57,10 +87,21 @@ final class GameScene: SKScene {
     }
     
     // MARK: - Public API (e.g., for SwiftUI buttons)
+    /// Regenerates the dungeon with a new or existing seed.
+    ///
+    /// Triggers complete dungeon regeneration using the current algorithm
+    /// settings and the specified seed for deterministic or random generation.
+    ///
+    /// - Parameter seed: Optional seed for deterministic generation, nil for random
     func regenerate(seed: UInt64?) {
         generateDungeon(seed: seed)
     }
     
+    /// Cycles to the next available generation algorithm.
+    ///
+    /// Advances through the available generation algorithms in sequence
+    /// and immediately regenerates the dungeon using the new algorithm
+    /// with the current seed.
     func cycleAlgorithm() {
         pendingAlgoIndex = (pendingAlgoIndex + 1) % algorithms.count
         regenerate(seed: currentSeed)
@@ -243,6 +284,13 @@ final class GameScene: SKScene {
     }
     
     // MARK: - Game Loop
+    /// Main update loop called each frame by SpriteKit.
+    ///
+    /// Coordinates all real-time game systems including player movement,
+    /// camera tracking, and monster AI updates. Throttles expensive
+    /// operations like pathfinding to maintain consistent performance.
+    ///
+    /// - Parameter currentTime: Current time in seconds since scene start
     override func update(_ currentTime: TimeInterval) {
         updatePlayerMovement()
         updateCamera()
@@ -253,12 +301,25 @@ final class GameScene: SKScene {
     }
     
     // MARK: - Movement / Combat
+    /// Processes pending player movement commands.
+    ///
+    /// Executes queued movement direction and resets the movement state
+    /// after processing. Called each frame to provide responsive controls.
     private func updatePlayerMovement() {
         guard movementDir.dx != 0 || movementDir.dy != 0 else { return }
         tryMovePlayer(dx: movementDir.dx, dy: movementDir.dy)
         movementDir = (0,0)
     }
     
+    /// Attempts to move the player in the specified direction.
+    ///
+    /// Validates movement against map boundaries and tile collision,
+    /// handles door interactions, monster combat, and updates field
+    /// of view after successful movement.
+    ///
+    /// - Parameters:
+    ///   - dx: X direction offset (-1, 0, or 1)
+    ///   - dy: Y direction offset (-1, 0, or 1)
     private func tryMovePlayer(dx: Int, dy: Int) {
         guard var map = map,
               let player = player else { return }
@@ -337,6 +398,15 @@ final class GameScene: SKScene {
     }
     
     // MARK: - Touch Input (Tap to step toward tap)
+    /// Handles touch input for player movement.
+    ///
+    /// Converts touch screen coordinates to movement direction by determining
+    /// which cardinal direction from the player position the touch occurred.
+    /// Prioritizes the axis with greater displacement for intuitive movement.
+    ///
+    /// - Parameters:
+    ///   - touches: Set of touch objects representing the input
+    ///   - event: The event containing the touches
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let player = player,
               let touch = touches.first,
@@ -355,7 +425,14 @@ final class GameScene: SKScene {
 }
 
 // MARK: - CGPoint Lerp
+/// Extension providing smooth interpolation for camera movement.
 private extension CGPoint {
+    /// Linearly interpolates between this point and another.
+    ///
+    /// - Parameters:
+    ///   - to: Target point for interpolation
+    ///   - t: Interpolation factor (0.0 to 1.0)
+    /// - Returns: Interpolated point between self and target
     func lerp(to: CGPoint, t: CGFloat) -> CGPoint {
         CGPoint(x: x + (to.x - x)*t,
                 y: y + (to.y - y)*t)
