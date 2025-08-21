@@ -1,15 +1,55 @@
 import Foundation
 
+/// Generates dungeons using binary space partitioning algorithm.
+///
+/// Creates dungeons by recursively dividing the space into smaller regions
+/// and placing rooms within leaf nodes. Connects rooms with corridors that
+/// follow the partition tree structure for more organic layouts.
+///
+/// - Since: 1.0.0
 final class BSPGenerator: DungeonGenerating {
+    /// Represents a node in the binary space partition tree.
+    ///
+    /// Each node contains a rectangular region and optional child references
+    /// for the partition tree structure, plus an optional room for leaf nodes.
+    ///
+    /// - Since: 1.0.0
     private struct Node {
+        /// The rectangular area this node represents.
         var rect: Rect
+        
+        /// Index of the left child node in the nodes array.
         var left: Int?
+        
+        /// Index of the right child node in the nodes array.
         var right: Int?
+        
+        /// The room placed within this node's area (for leaf nodes).
         var room: Rect?
     }
     
+    /// Generates a complete dungeon using binary space partitioning.
+    ///
+    /// Recursively divides the dungeon space into smaller regions, places
+    /// rooms in leaf partitions, then connects them with corridors following
+    /// the partition tree hierarchy for natural connectivity.
+    ///
+    /// - Parameters:
+    ///   - config: Configuration parameters for generation
+    ///   - rng: Random number generator for partition decisions
+    /// - Returns: A complete dungeon map with organically connected rooms
+    /// - Complexity: O(width * height + 2^maxDepth)
     func generate(config: DungeonConfig, rng: inout RandomNumberGenerator) -> DungeonMap {
         var nodes: [Node] = []
+        
+        /// Recursively splits a node into two child partitions.
+        ///
+        /// Divides the node's area either horizontally or vertically,
+        /// creating two child nodes and continuing recursion up to max depth.
+        ///
+        /// - Parameters:
+        ///   - nodeIndex: Index of the node to split
+        ///   - depth: Current recursion depth
         func split(nodeIndex: Int, depth: Int) {
             if depth >= config.bspMaxDepth { return }
             var node = nodes[nodeIndex]
@@ -59,6 +99,10 @@ final class BSPGenerator: DungeonGenerating {
         }
         
         var tiles = Array(repeating: Tile(kind: .wall), count: config.width * config.height)
+        
+        /// Carves out floor tiles for a rectangular room.
+        ///
+        /// - Parameter room: The rectangular area to carve as floor
         func carve(_ room: Rect) {
             for x in room.x..<room.x+room.w {
                 for y in room.y..<room.y+room.h {
@@ -70,7 +114,11 @@ final class BSPGenerator: DungeonGenerating {
             if let r = n.room { carve(r) }
         }
         
-        // Connect rooms via corridors (connecting sibling leaves)
+        /// Connects two nodes by creating corridors between their rooms.
+        ///
+        /// - Parameters:
+        ///   - a: First node to connect
+        ///   - b: Second node to connect
         func connect(_ a: Node, _ b: Node) {
             guard let ar = findRoom(node: a), let br = findRoom(node: b) else { return }
             let (ax, ay) = ar.center
@@ -83,12 +131,22 @@ final class BSPGenerator: DungeonGenerating {
                 carveH(ax, bx, by)
             }
         }
+        
+        /// Finds the first room in a node or its descendants.
+        ///
+        /// - Parameter node: The node to search for a room
+        /// - Returns: The first room found, or nil if none exists
+        /// - Complexity: O(log n) average case
         func findRoom(node: Node) -> Rect? {
             if let r = node.room { return r }
             if let li = node.left { if let r = findRoom(node: nodes[li]) { return r } }
             if let ri = node.right { if let r = findRoom(node: nodes[ri]) { return r } }
             return nil
         }
+        
+        /// Traverses the partition tree to connect sibling nodes.
+        ///
+        /// - Parameter index: Index of the current node to process
         func traverse(_ index: Int) {
             let n = nodes[index]
             if let l = n.left, let r = n.right {
@@ -97,9 +155,23 @@ final class BSPGenerator: DungeonGenerating {
                 traverse(r)
             }
         }
+        
+        /// Carves a horizontal corridor between two x coordinates.
+        ///
+        /// - Parameters:
+        ///   - x1: Starting x coordinate
+        ///   - x2: Ending x coordinate
+        ///   - y: Y coordinate of the corridor
         func carveH(_ x1: Int,_ x2: Int,_ y: Int) {
             for x in min(x1,x2)...max(x1,x2) { tiles[x + y*config.width].kind = .floor }
         }
+        
+        /// Carves a vertical corridor between two y coordinates.
+        ///
+        /// - Parameters:
+        ///   - y1: Starting y coordinate
+        ///   - y2: Ending y coordinate
+        ///   - x: X coordinate of the corridor
         func carveV(_ y1: Int,_ y2: Int,_ x: Int) {
             for y in min(y1,y2)...max(y1,y2) { tiles[x + y*config.width].kind = .floor }
         }
