@@ -7,9 +7,24 @@
 
 import CoreData
 
+/// Manages Core Data persistence with CloudKit integration for the DeepLevel app.
+///
+/// Provides centralized access to the Core Data stack with CloudKit synchronization
+/// capabilities. Includes both production and preview configurations for development
+/// and testing scenarios.
+///
+/// - Since: 1.0.0
 struct PersistenceController {
+    /// Shared singleton instance for app-wide Core Data access.
     static let shared = PersistenceController()
 
+    /// Preview instance with in-memory store and sample data for SwiftUI previews.
+    ///
+    /// Creates a temporary persistence controller with mock data for use in
+    /// SwiftUI previews and testing scenarios without affecting persistent storage.
+    ///
+    /// - Returns: A configured persistence controller with sample data
+    /// - Warning: This method creates sample data and uses fatalError for unhandled errors
     @MainActor
     static let preview: PersistenceController = {
         let result = PersistenceController(inMemory: true)
@@ -29,8 +44,17 @@ struct PersistenceController {
         return result
     }()
 
+    /// The CloudKit-enabled Core Data container managing the data model.
     let container: NSPersistentCloudKitContainer
 
+    /// Creates a new persistence controller with optional in-memory configuration.
+    ///
+    /// Initializes the Core Data stack with CloudKit integration. Can be configured
+    /// for in-memory operation for testing purposes or persistent storage for
+    /// production use.
+    ///
+    /// - Parameter inMemory: Whether to use in-memory storage instead of persistent files
+    /// - Warning: Uses fatalError for unhandled Core Data loading errors
     init(inMemory: Bool = false) {
         container = NSPersistentCloudKitContainer(name: "DeepLevel")
         if inMemory {
