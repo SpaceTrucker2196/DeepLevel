@@ -1,6 +1,25 @@
 import Foundation
 
+/// Implements field of view (FOV) calculation using symmetrical shadowcasting.
+///
+/// Provides efficient visibility calculation for dungeon exploration games,
+/// determining which tiles are visible from a given position while respecting
+/// line-of-sight blocking by walls and other obstacles.
+///
+/// - Since: 1.0.0
 struct FOV {
+    /// Computes field of view from a given origin point.
+    ///
+    /// Uses symmetrical shadowcasting algorithm to calculate which tiles
+    /// are visible from the origin within the specified radius. Updates
+    /// both visibility and exploration status of affected tiles.
+    ///
+    /// - Parameters:
+    ///   - map: The dungeon map to update with visibility information
+    ///   - originX: X coordinate of the viewing position
+    ///   - originY: Y coordinate of the viewing position
+    ///   - radius: Maximum viewing distance in tiles
+    /// - Complexity: O(radius²) with good average-case performance
     static func compute(map: inout DungeonMap, originX: Int, originY: Int, radius: Int) {
         // Reset visibility
         for i in 0..<map.tiles.count {
@@ -20,6 +39,16 @@ struct FOV {
         }
     }
     
+    /// Marks a tile as visible and explored.
+    ///
+    /// Sets both visibility flags for a tile if it's within map bounds,
+    /// tracking both current sight and permanent exploration state.
+    ///
+    /// - Parameters:
+    ///   - map: The map to modify
+    ///   - x: X coordinate of the tile
+    ///   - y: Y coordinate of the tile
+    /// - Complexity: O(1)
     private static func setVisible(_ map: inout DungeonMap, x: Int, y: Int) {
         guard map.inBounds(x,y) else { return }
         let idx = map.index(x: x, y: y)
@@ -27,11 +56,38 @@ struct FOV {
         map.tiles[idx].explored = true
     }
     
+    /// Checks if a tile blocks line of sight.
+    ///
+    /// Determines whether the tile at the given coordinates prevents
+    /// seeing through it, treating out-of-bounds as blocking.
+    ///
+    /// - Parameters:
+    ///   - map: The map to check
+    ///   - x: X coordinate of the tile
+    ///   - y: Y coordinate of the tile
+    /// - Returns: `true` if the tile blocks sight or is out of bounds
+    /// - Complexity: O(1)
     private static func blocksSight(_ map: DungeonMap, x: Int, y: Int) -> Bool {
         guard map.inBounds(x,y) else { return true }
         return map.tiles[map.index(x: x, y: y)].blocksSight
     }
     
+    /// Recursively casts light rays using shadowcasting algorithm.
+    ///
+    /// Implements the core shadowcasting logic for one octant, handling
+    /// light propagation and shadow generation from blocking obstacles.
+    /// Uses slope-based calculations to determine visibility boundaries.
+    ///
+    /// - Parameters:
+    ///   - map: The dungeon map being processed
+    ///   - originX: X coordinate of the light source
+    ///   - originY: Y coordinate of the light source
+    ///   - radius: Maximum light radius
+    ///   - row: Current distance from origin
+    ///   - startSlope: Starting slope of the light beam
+    ///   - endSlope: Ending slope of the light beam
+    ///   - octant: Which of the 8 octants is being processed (0-7)
+    /// - Complexity: O(radius) per recursive call
     private static func castLight(map: inout DungeonMap,
                                   originX: Int,
                                   originY: Int,
@@ -91,6 +147,20 @@ struct FOV {
         }
     }
     
+    /// Translates relative coordinates to absolute coordinates for a specific octant.
+    ///
+    /// Converts local dx,dy coordinates relative to an origin into absolute
+    /// map coordinates, handling the rotation and reflection for each of the
+    /// 8 octants used in shadowcasting.
+    ///
+    /// - Parameters:
+    ///   - dx: Relative X displacement
+    ///   - dy: Relative Y displacement
+    ///   - ox: Origin X coordinate
+    ///   - oy: Origin Y coordinate
+    ///   - oct: Octant number (0-7)
+    /// - Returns: Absolute (x, y) coordinates on the map
+    /// - Complexity: O(1)
     private static func translateOctant(dx: Int, dy: Int, ox: Int, oy: Int, oct: Int) -> (Int,Int) {
         switch oct {
         case 0: return (ox + dy, oy - dx)
