@@ -231,13 +231,14 @@ final class GameScene: SKScene {
         let p = Entity(kind: .player,
                        gridX: start.0,
                        gridY: start.1,
-                       color: .systemRed,
+                       textureName: "Foxy", // Use Foxy sprite
+                       color: .clear,
                        size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
         addChild(p)
         p.moveTo(gridX: p.gridX, gridY: p.gridY, tileSize: tileSize, animated: false)
         player = p
     }
-    
+
     private func spawnMonsters() {
         guard let map = map,
               let player = player else { return }
@@ -251,7 +252,7 @@ final class GameScene: SKScene {
                 let y = Int.random(in: 0..<map.height)
                 let t = map.tiles[map.index(x: x, y: y)]
                 if t.kind == .floor && (x,y) != (player.gridX, player.gridY) {
-                    let m = Monster(gridX: x, gridY: y, tileSize: tileSize)
+                    let m = Monster(gridX: x, gridY: y, tileSize: tileSize, textureName: "Ursa") // Use Ursa sprite
                     addChild(m)
                     m.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
                     monsters.append(m)
@@ -260,6 +261,7 @@ final class GameScene: SKScene {
             }
         }
     }
+    
     
     // MARK: - HUD / Camera
     private func updateHUD() {
