@@ -15,6 +15,9 @@ enum GenerationAlgorithm {
     
     /// Cellular automata for cave-like organic structures.
     case cellular
+    
+    /// City map generation with urban districts, streets, and detailed neighborhoods.
+    case cityMap
 }
 
 /// Configuration parameters for dungeon generation algorithms.
@@ -69,4 +72,27 @@ struct DungeonConfig {
     
     /// Size of city blocks in tiles (only used when cityLayout is true).
     var cityBlockSize: Int = 6
+    
+    // MARK: - City Map Algorithm Configuration
+    
+    /// Width of streets for city map algorithm (in tiles).
+    var cityMapStreetWidth: Int = 2
+    
+    /// Size of city blocks for city map algorithm (in tiles).
+    var cityMapBlockSize: Int = 10
+    
+    /// Frequency of park districts (0.0 to 1.0).
+    var parkFrequency: Double = 0.15
+    
+    /// Frequency of residential districts (0.0 to 1.0).
+    var residentialFrequency: Double = 0.35
+    
+    /// Frequency of urban districts (0.0 to 1.0).
+    var urbanFrequency: Double = 0.25
+    
+    /// Frequency of red light districts (0.0 to 1.0).
+    var redLightFrequency: Double = 0.1
+    
+    /// Frequency of retail districts (0.0 to 1.0).
+    var retailFrequency: Double = 0.15
 }

@@ -195,6 +195,19 @@ final class GameScene: SKScene {
                 case .sidewalk: group = tileRefs.sidewalk
                 case .driveway: group = tileRefs.driveway
                 case .hidingArea: group = tileRefs.hidingArea
+                case .park: group = tileRefs.park
+                case .residential1: group = tileRefs.residential1
+                case .residential2: group = tileRefs.residential2
+                case .residential3: group = tileRefs.residential3
+                case .residential4: group = tileRefs.residential4
+                case .urban1: group = tileRefs.urban1
+                case .urban2: group = tileRefs.urban2
+                case .urban3: group = tileRefs.urban3
+                case .redLight: group = tileRefs.redLight
+                case .retail: group = tileRefs.retail
+                case .sidewalkTree: group = tileRefs.sidewalkTree
+                case .sidewalkHydrant: group = tileRefs.sidewalkHydrant
+                case .street: group = tileRefs.street
                 }
                 tileMap.setTileGroup(group, forColumn: x, row: y)
             }
@@ -231,6 +244,19 @@ final class GameScene: SKScene {
         case .sidewalk: group = tileRefs.sidewalk
         case .driveway: group = tileRefs.driveway
         case .hidingArea: group = tileRefs.hidingArea
+        case .park: group = tileRefs.park
+        case .residential1: group = tileRefs.residential1
+        case .residential2: group = tileRefs.residential2
+        case .residential3: group = tileRefs.residential3
+        case .residential4: group = tileRefs.residential4
+        case .urban1: group = tileRefs.urban1
+        case .urban2: group = tileRefs.urban2
+        case .urban3: group = tileRefs.urban3
+        case .redLight: group = tileRefs.redLight
+        case .retail: group = tileRefs.retail
+        case .sidewalkTree: group = tileRefs.sidewalkTree
+        case .sidewalkHydrant: group = tileRefs.sidewalkHydrant
+        case .street: group = tileRefs.street
         }
         tileMap.setTileGroup(group, forColumn: x, row: y)
     }

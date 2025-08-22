@@ -410,7 +410,9 @@ struct DeepLevelTests {
         let hidingAreaWalkable = { (kind: TileKind) -> Bool in
             switch kind {
             case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
-            case .floor, .sidewalk: return true
+            case .floor, .sidewalk, .sidewalkTree, .sidewalkHydrant, .street: return true
+            case .park, .residential1, .residential2, .residential3, .residential4: return true
+            case .urban1, .urban2, .urban3, .redLight, .retail: return true
             }
         }
         
@@ -444,6 +446,179 @@ struct DeepLevelTests {
         // A regular floor tile should not stop movement
         let floorTile = Tile(kind: .floor)
         #expect(floorTile.providesConcealment == false)
+    }
+    
+    /// Tests the new city map algorithm generation.
+    ///
+    /// Verifies that the city map algorithm creates proper urban environments
+    /// with different district types, streets, and sidewalks.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testCityMapGeneration() async throws {
+        // Configure for city map algorithm
+        var config = DungeonConfig()
+        config.width = 50
+        config.height = 50
+        config.algorithm = .cityMap
+        config.cityMapBlockSize = 10
+        config.cityMapStreetWidth = 2
+        
+        // Generate city map
+        let generator = CityMapGenerator()
+        var rng = SystemRandomNumberGenerator()
+        let cityMap = generator.generate(config: config, rng: &rng)
+        
+        // Verify city blocks were generated
+        #expect(cityMap.rooms.count > 0)
+        
+        // All rooms should be 10x10 city blocks
+        for room in cityMap.rooms {
+            #expect(room.w == config.cityMapBlockSize)
+            #expect(room.h == config.cityMapBlockSize)
+        }
+        
+        // Verify new tile types exist
+        let tileKinds = Set(cityMap.tiles.map { $0.kind })
+        #expect(tileKinds.contains(.street))  // New street type
+        #expect(tileKinds.contains(.sidewalk))  // Sidewalk borders
+        
+        // Should have at least one district type
+        let districtTypes: [TileKind] = [.park, .residential1, .residential2, .residential3, .residential4,
+                                       .urban1, .urban2, .urban3, .redLight, .retail]
+        let hasDistrictType = districtTypes.contains { tileKinds.contains($0) }
+        #expect(hasDistrictType)
+        
+        // Verify player start is on a walkable tile
+        let playerStart = cityMap.playerStart
+        let startIdx = cityMap.index(x: playerStart.0, y: playerStart.1)
+        #expect(!cityMap.tiles[startIdx].blocksMovement)
+    }
+    
+    /// Tests district frequency configuration in city map.
+    ///
+    /// Verifies that district frequencies affect the distribution of district types.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testCityMapDistrictFrequencies() async throws {
+        // Configure with high park frequency, zero others
+        var config = DungeonConfig()
+        config.width = 40
+        config.height = 40
+        config.algorithm = .cityMap
+        config.cityMapBlockSize = 10
+        config.parkFrequency = 1.0
+        config.residentialFrequency = 0.0
+        config.urbanFrequency = 0.0
+        config.redLightFrequency = 0.0
+        config.retailFrequency = 0.0
+        
+        // Generate city map
+        let generator = CityMapGenerator()
+        var rng = SystemRandomNumberGenerator()
+        let cityMap = generator.generate(config: config, rng: &rng)
+        
+        // Count district types
+        let parkCount = cityMap.tiles.count { $0.kind == .park || $0.kind == .hidingArea }
+        let nonParkDistricts = cityMap.tiles.count { tile in
+            [.residential1, .residential2, .residential3, .residential4,
+             .urban1, .urban2, .urban3, .redLight, .retail].contains(tile.kind)
+        }
+        
+        // Should have parks but no other district types
+        if cityMap.rooms.count > 0 {
+            #expect(parkCount > 0)
+            #expect(nonParkDistricts == 0)
+        }
+    }
+    
+    /// Tests park hiding areas functionality.
+    ///
+    /// Verifies that parks can contain hiding areas and provide concealment.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testParkHidingAreas() async throws {
+        // Test that park tiles provide concealment
+        let parkTile = Tile(kind: .park)
+        #expect(parkTile.providesConcealment == true)
+        
+        // Test movement properties
+        #expect(parkTile.blocksMovement == false)
+        #expect(parkTile.blocksSight == false)
+    }
+    
+    /// Tests new tile types properties.
+    ///
+    /// Verifies that all new tile types have correct movement and sight properties.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testNewTileTypesProperties() async throws {
+        // Test district tiles
+        let districtTiles: [TileKind] = [.park, .residential1, .residential2, .residential3, .residential4,
+                                       .urban1, .urban2, .urban3, .redLight, .retail]
+        
+        for tileKind in districtTiles {
+            let tile = Tile(kind: tileKind)
+            #expect(tile.blocksMovement == false, "District tile \(tileKind) should not block movement")
+            #expect(tile.blocksSight == false, "District tile \(tileKind) should not block sight")
+        }
+        
+        // Test sidewalk variants
+        let sidewalkTiles: [TileKind] = [.sidewalk, .sidewalkTree, .sidewalkHydrant]
+        
+        for tileKind in sidewalkTiles {
+            let tile = Tile(kind: tileKind)
+            #expect(tile.blocksMovement == false, "Sidewalk tile \(tileKind) should not block movement")
+            #expect(tile.blocksSight == false, "Sidewalk tile \(tileKind) should not block sight")
+        }
+        
+        // Test street tiles
+        let streetTile = Tile(kind: .street)
+        #expect(streetTile.blocksMovement == false)
+        #expect(streetTile.blocksSight == false)
+    }
+    
+    /// Tests color cast functionality for lighting effects.
+    ///
+    /// Verifies that tiles can have color cast values for light/shadow effects.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testColorCastFunctionality() async throws {
+        // Test default color cast
+        var tile = Tile(kind: .street)
+        #expect(tile.colorCast == 0.0)
+        
+        // Test setting positive color cast (light)
+        tile.colorCast = 0.4
+        #expect(tile.colorCast == 0.4)
+        
+        // Test setting negative color cast (shadow)
+        tile.colorCast = -0.3
+        #expect(tile.colorCast == -0.3)
+    }
+    
+    /// Tests that city map algorithm is properly integrated.
+    ///
+    /// Verifies that the DungeonGenerator routes to CityMapGenerator correctly.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testCityMapAlgorithmIntegration() async throws {
+        // Test that the algorithm enum includes cityMap
+        let algorithm = GenerationAlgorithm.cityMap
+        #expect(algorithm == .cityMap)
+        
+        // Test that DungeonGenerator can use the city map algorithm
+        var config = DungeonConfig()
+        config.algorithm = .cityMap
+        config.width = 30
+        config.height = 30
+        
+        let dungeonGenerator = DungeonGenerator(config: config)
+        let map = dungeonGenerator.generate()
+        
+        // Verify the map was generated
+        #expect(map.width == 30)
+        #expect(map.height == 30)
+        #expect(map.tiles.count == 30 * 30)
     }
 
 }
