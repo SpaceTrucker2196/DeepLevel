@@ -29,7 +29,19 @@ config.maxRooms = 20
 config.roomMinSize = 4
 config.roomMaxSize = 10
 config.secretRoomChance = 0.08
+config.roomBorders = true  // Add 1-tile borders around rooms
 ```
+
+### Room Borders
+
+Enable `roomBorders` to add 1-tile thick wall borders around each room, creating a sidewalk-like effect around rooms similar to city blocks. This feature:
+
+- Provides visual separation between rooms and corridors
+- Creates more architectural layouts with defined room boundaries
+- Reduces interior room space but maintains the same room placement
+- Works with all dungeon generation algorithms
+
+When enabled, a 6x4 room becomes a 4x2 interior with 1-tile walls on all sides.
 
 ## Binary Space Partitioning (BSP)
 
@@ -53,6 +65,7 @@ config.algorithm = .bsp
 config.bspMaxDepth = 5
 config.roomMinSize = 4
 config.roomMaxSize = 10
+config.roomBorders = true  // Add 1-tile borders around rooms
 ```
 
 ## Cellular Automata

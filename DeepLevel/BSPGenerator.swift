@@ -104,9 +104,19 @@ final class BSPGenerator: DungeonGenerating {
         ///
         /// - Parameter room: The rectangular area to carve as floor
         func carve(_ room: Rect) {
-            for x in room.x..<room.x+room.w {
-                for y in room.y..<room.y+room.h {
-                    tiles[x + y*config.width].kind = .floor
+            if config.roomBorders {
+                // Carve interior only, leaving 1-tile border as walls
+                for x in (room.x+1)..<(room.x+room.w-1) {
+                    for y in (room.y+1)..<(room.y+room.h-1) {
+                        tiles[x + y*config.width].kind = .floor
+                    }
+                }
+            } else {
+                // Carve entire room area as floor (original behavior)
+                for x in room.x..<room.x+room.w {
+                    for y in room.y..<room.y+room.h {
+                        tiles[x + y*config.width].kind = .floor
+                    }
                 }
             }
         }

@@ -57,4 +57,7 @@ struct DungeonConfig {
     
     /// Probability of generating secret rooms (0.0 to 1.0).
     var secretRoomChance: Double = 0.08
+    
+    /// Whether to add 1-tile thick wall borders around rooms like sidewalks.
+    var roomBorders: Bool = false
 }
