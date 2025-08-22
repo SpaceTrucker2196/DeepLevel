@@ -295,45 +295,50 @@ final class GameScene: SKScene {
     }
 
     private func spawnMonsters() {
-        guard let map = map,
-              let player = player else { return }
-        monsters.forEach { $0.removeFromParent() }
-        monsters = []
-        for _ in 0..<5 {
-            var attempts = 0
-            while attempts < 50 {
-                attempts += 1
-                let x = Int.random(in: 0..<map.width)
-                let y = Int.random(in: 0..<map.height)
-                let t = map.tiles[map.index(x: x, y: y)]
-                if t.kind == .floor && (x,y) != (player.gridX, player.gridY) {
-                    let m = Monster(gridX: x, gridY: y, tileSize: tileSize) // Use Ursa sprite
-                    addChild(m)
-                    m.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
-                    monsters.append(m)
-                    break
+            guard let map = map,
+                  let player = player else { return }
+            monsters.forEach { $0.removeFromParent() }
+            monsters = []
+            
+            for _ in 0..<5 {
+                var attempts = 0
+                while attempts < 50 {
+                    attempts += 1
+                    let x = Int.random(in: 0..<map.width)
+                    let y = Int.random(in: 0..<map.height)
+                    let t = map.tiles[map.index(x: x, y: y)]
+                    
+                    // Updated condition: allow floor or street (or anything marked spawnable)
+                    if t.kind.isSpawnSurface && (x, y) != (player.gridX, player.gridY) {
+                        let m = Monster(gridX: x, gridY: y, tileSize: tileSize)
+                        addChild(m)
+                        m.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
+                        monsters.append(m)
+                        break
+                    }
                 }
             }
         }
-    }
-    
-    private func spawnCharmed() {
-        guard let map = map,
-              let player = player else { return }
-        charmedEntities.forEach { $0.removeFromParent() }
-        charmedEntities = []
-        charmedScore = 0  // Reset score when spawning new entities
-        for _ in 0..<3 { // Spawn 3 charmed entities
-            var attempts = 0
-            while attempts < 50 {
-                attempts += 1
-                let x = Int.random(in: 0..<map.width)
-                let y = Int.random(in: 0..<map.height)
-                let t = map.tiles[map.index(x: x, y: y)]
-                if t.kind == .floor && (x,y) != (player.gridX, player.gridY) {
-                    // Make sure we don't spawn on monster locations
-                    let hasMonster = monsters.contains { $0.gridX == x && $0.gridY == y }
-                    if !hasMonster {
+        
+        private func spawnCharmed() {
+            guard let map = map,
+                  let player = player else { return }
+            charmedEntities.forEach { $0.removeFromParent() }
+            charmedEntities = []
+            charmedScore = 0
+            
+            for _ in 0..<13 {
+                var attempts = 0
+                while attempts < 50 {
+                    attempts += 1
+                    let x = Int.random(in: 0..<map.width)
+                    let y = Int.random(in: 0..<map.height)
+                    let t = map.tiles[map.index(x: x, y: y)]
+                    
+                    if t.kind.isSpawnSurface &&
+                       (x, y) != (player.gridX, player.gridY) &&
+                       !monsters.contains(where: { $0.gridX == x && $0.gridY == y }) {
+                        
                         let c = Charmed(gridX: x, gridY: y, tileSize: tileSize)
                         addChild(c)
                         c.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
@@ -343,7 +348,6 @@ final class GameScene: SKScene {
                 }
             }
         }
-    }
     
     
     // MARK: - HUD / Camera
@@ -587,7 +591,25 @@ final class GameScene: SKScene {
                                                 goal: lastPos) { kind in
                         switch kind {
                         case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
-                        case .floor, .sidewalk: return true
+                        case .floor,
+                                .sidewalk,
+                                .street,
+                                .retail,
+                                .park,
+                                .redLight,
+                                .sidewalkHydrant,
+                                .sidewalkTree,
+                                .urban1,
+                                .urban2,
+                                .urban3 : return true
+                        case .residential1:
+                             return true
+                        case .residential2:
+                             return true
+                        case .residential3:
+                             return true
+                        case .residential4:
+                             return true
                         @unknown default: return false
                         }
                     }
@@ -636,7 +658,7 @@ final class GameScene: SKScene {
                                     goal: target) { kind in
             switch kind {
             case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
-            case .floor, .sidewalk: return true
+            case .floor, .sidewalk, .park,.redLight,.sidewalkHydrant, .sidewalkTree, .street : return true
             @unknown default: return false
             }
         }
@@ -705,8 +727,17 @@ final class GameScene: SKScene {
                                     goal: (player.gridX, player.gridY)) { kind in
             switch kind {
             case .wall, .doorClosed, .doorSecret, .driveway: return false
-            case .floor, .sidewalk, .hidingArea: return true
-            @unknown default: return false
+            case .floor,
+                    .sidewalk,
+                    .hidingArea,
+                    .street,
+                    .doorSecret,
+                    .park,
+                    .redLight,
+                    .urban1,
+                    .urban2,
+                    .urban3: return true
+            @unknown default: return true
             }
         }
         
@@ -745,7 +776,7 @@ final class GameScene: SKScene {
             switch kind {
             case .wall, .doorClosed, .doorSecret, .driveway: return false
             case .floor, .sidewalk, .hidingArea: return true
-            @unknown default: return false
+            @unknown default: return true
             }
         }
         
