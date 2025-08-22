@@ -67,6 +67,10 @@ final class CellularAutomataGenerator: DungeonGenerating {
                 tiles.append(Tile(kind: floor ? .floor : .wall))
             }
         }
+        
+        // Place hiding areas in cave system
+        placeHidingAreas(config: config, rng: &rng, tiles: &tiles, openArea: best)
+        
         let start = best.randomElement(using: &rng) ?? (config.width/2, config.height/2)
         return DungeonMap(width: config.width,
                           height: config.height,
@@ -121,5 +125,75 @@ final class CellularAutomataGenerator: DungeonGenerating {
             }
         }
         return c
+    }
+    
+    /// Places 2x2 hiding areas in cave systems.
+    ///
+    /// Creates hiding areas that provide concealment from monsters while
+    /// still allowing movement. Places them in suitable locations within
+    /// the open cave area.
+    ///
+    /// - Parameters:
+    ///   - config: Generation configuration
+    ///   - rng: Random number generator
+    ///   - tiles: The tile array to modify
+    ///   - openArea: Array of coordinates representing the open cave area
+    private func placeHidingAreas(config: DungeonConfig, rng: inout RandomNumberGenerator, tiles: inout [Tile], openArea: [(Int, Int)]) {
+        let maxHidingAreas = max(1, openArea.count / 50) // Roughly one hiding area per 50 floor tiles
+        var placedAreas = 0
+        
+        for _ in 0..<100 { // Try up to 100 placements
+            guard placedAreas < maxHidingAreas else { break }
+            
+            let x = Int.random(in: 1..<(config.width - 2), using: &rng)
+            let y = Int.random(in: 1..<(config.height - 2), using: &rng)
+            
+            // Check if we can place a 2x2 hiding area here
+            var canPlace = true
+            for dx in 0..<2 {
+                for dy in 0..<2 {
+                    let checkX = x + dx
+                    let checkY = y + dy
+                    let idx = checkX + checkY * config.width
+                    
+                    // Must be floor tiles and part of the open area
+                    if tiles[idx].kind != .floor || !openArea.contains(where: { $0.0 == checkX && $0.1 == checkY }) {
+                        canPlace = false
+                        break
+                    }
+                }
+                if !canPlace { break }
+            }
+            
+            // Ensure we're not placing too close to existing hiding areas
+            if canPlace {
+                for dx in -1...2 {
+                    for dy in -1...2 {
+                        let checkX = x + dx
+                        let checkY = y + dy
+                        if checkX >= 0 && checkX < config.width && 
+                           checkY >= 0 && checkY < config.height {
+                            let idx = checkX + checkY * config.width
+                            if tiles[idx].kind == .hidingArea {
+                                canPlace = false
+                                break
+                            }
+                        }
+                    }
+                    if !canPlace { break }
+                }
+            }
+            
+            if canPlace {
+                // Place 2x2 hiding area
+                for dx in 0..<2 {
+                    for dy in 0..<2 {
+                        let idx = (x + dx) + (y + dy) * config.width
+                        tiles[idx].kind = .hidingArea
+                    }
+                }
+                placedAreas += 1
+            }
+        }
     }
 }
