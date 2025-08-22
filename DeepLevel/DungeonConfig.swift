@@ -60,4 +60,13 @@ struct DungeonConfig {
     
     /// Whether to add 1-tile thick wall borders around rooms like sidewalks.
     var roomBorders: Bool = false
+    
+    /// Whether to generate city layout with 6x6 blocks and 4-tile wide streets.
+    var cityLayout: Bool = false
+    
+    /// Width of city streets in tiles (only used when cityLayout is true).
+    var streetWidth: Int = 4
+    
+    /// Size of city blocks in tiles (only used when cityLayout is true).
+    var cityBlockSize: Int = 6
 }
