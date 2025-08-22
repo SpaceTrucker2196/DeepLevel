@@ -32,6 +32,9 @@ final class RoomsGenerator: DungeonGenerating {
         // Generate secret rooms
         generateSecretRooms(config: config, rng: &rng, tiles: &tiles, rooms: &rooms)
         
+        // Validate connectivity and fix if needed
+        validateAndFixConnectivity(config: config, tiles: &tiles, rooms: rooms)
+        
         // Determine player start
         let start: (Int, Int)
         if let first = rooms.first {
@@ -381,6 +384,7 @@ final class RoomsGenerator: DungeonGenerating {
     /// Analyzes room perimeters to identify suitable door placement
     /// locations where corridors connect to rooms. For city layout,
     /// places driveways connecting city blocks to streets.
+    /// Ensures every room has at least one door to prevent player trapping.
     ///
     /// - Parameters:
     ///   - rooms: Array of rooms to process
@@ -388,7 +392,12 @@ final class RoomsGenerator: DungeonGenerating {
     ///   - tiles: Tile array to modify
     /// - Complexity: O(rooms * perimeter)
     private func placeDoors(rooms: [Rect], config: DungeonConfig, tiles: inout [Tile]) {
-        for room in rooms {
+        var roomsWithDoors = Set<Int>()
+        
+        // First pass: place doors using standard criteria
+        for (roomIndex, room) in rooms.enumerated() {
+            var hasPlacedDoor = false
+            
             // Check perimeter tiles; if floor inside and corridor outside narrow, place door
             for x in room.x..<(room.x+room.w) {
                 for yEdge in [room.y - 1, room.y + room.h] {
@@ -396,6 +405,7 @@ final class RoomsGenerator: DungeonGenerating {
                     if isPotentialDoor(x: x, y: yEdge, tiles: tiles, width: config.width, height: config.height) {
                         let doorType: TileKind = config.cityLayout ? .driveway : .doorClosed
                         tiles[x + yEdge*config.width].kind = doorType
+                        hasPlacedDoor = true
                     }
                 }
             }
@@ -405,6 +415,92 @@ final class RoomsGenerator: DungeonGenerating {
                     if isPotentialDoor(x: xEdge, y: y, tiles: tiles, width: config.width, height: config.height) {
                         let doorType: TileKind = config.cityLayout ? .driveway : .doorClosed
                         tiles[xEdge + y*config.width].kind = doorType
+                        hasPlacedDoor = true
+                    }
+                }
+            }
+            
+            if hasPlacedDoor {
+                roomsWithDoors.insert(roomIndex)
+            }
+        }
+        
+        // Second pass: ensure rooms without doors get at least one door
+        for (roomIndex, room) in rooms.enumerated() {
+            if !roomsWithDoors.contains(roomIndex) {
+                forcePlaceDoor(for: room, config: config, tiles: &tiles)
+            }
+        }
+    }
+    
+    /// Forces placement of a door for a room that doesn't have one.
+    ///
+    /// Uses more lenient criteria to ensure every room has at least one entrance.
+    /// Prioritizes locations adjacent to corridors or other passable areas.
+    ///
+    /// - Parameters:
+    ///   - room: The room that needs a door
+    ///   - config: Generation configuration for dimensions
+    ///   - tiles: Tile array to modify
+    /// - Complexity: O(perimeter)
+    private func forcePlaceDoor(for room: Rect, config: DungeonConfig, tiles: inout [Tile]) {
+        let doorType: TileKind = config.cityLayout ? .driveway : .doorClosed
+        var candidates: [(Int, Int, Int)] = [] // (x, y, priority)
+        
+        // Collect all perimeter wall tiles with adjacent floors, prioritizing by adjacency count
+        for x in room.x..<(room.x+room.w) {
+            for yEdge in [room.y - 1, room.y + room.h] {
+                if yEdge >= 0 && yEdge < config.height {
+                    let idx = x + yEdge * config.width
+                    if tiles[idx].kind == .wall {
+                        let adjacentFloors = countAdjacentFloors(x: x, y: yEdge, tiles: tiles, width: config.width, height: config.height)
+                        if adjacentFloors > 0 {
+                            candidates.append((x, yEdge, adjacentFloors))
+                        }
+                    }
+                }
+            }
+        }
+        
+        for y in room.y..<(room.y+room.h) {
+            for xEdge in [room.x - 1, room.x + room.w] {
+                if xEdge >= 0 && xEdge < config.width {
+                    let idx = xEdge + y * config.width
+                    if tiles[idx].kind == .wall {
+                        let adjacentFloors = countAdjacentFloors(x: xEdge, y: y, tiles: tiles, width: config.width, height: config.height)
+                        if adjacentFloors > 0 {
+                            candidates.append((xEdge, y, adjacentFloors))
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Sort by priority (higher adjacency count first) and place door at best location
+        if let best = candidates.max(by: { $0.2 < $1.2 }) {
+            tiles[best.0 + best.1 * config.width].kind = doorType
+        } else {
+            // Fallback: place door at any perimeter wall tile
+            for x in room.x..<(room.x+room.w) {
+                for yEdge in [room.y - 1, room.y + room.h] {
+                    if yEdge >= 0 && yEdge < config.height {
+                        let idx = x + yEdge * config.width
+                        if tiles[idx].kind == .wall {
+                            tiles[idx].kind = doorType
+                            return
+                        }
+                    }
+                }
+            }
+            
+            for y in room.y..<(room.y+room.h) {
+                for xEdge in [room.x - 1, room.x + room.w] {
+                    if xEdge >= 0 && xEdge < config.width {
+                        let idx = xEdge + y * config.width
+                        if tiles[idx].kind == .wall {
+                            tiles[idx].kind = doorType
+                            return
+                        }
                     }
                 }
             }
@@ -440,6 +536,160 @@ final class RoomsGenerator: DungeonGenerating {
                 tiles[dx + dy*config.width].kind = .doorSecret
             }
             rooms.append(secret)
+        }
+    }
+    
+    /// Validates that all accessible areas are connected and fixes connectivity issues.
+    ///
+    /// Performs a connectivity check from the player start position and identifies
+    /// any isolated floor areas. Creates emergency connections if needed to ensure
+    /// no areas are unreachable.
+    ///
+    /// - Parameters:
+    ///   - config: Generation configuration for dimensions
+    ///   - tiles: Tile array to analyze and potentially modify
+    ///   - rooms: Array of rooms for reference
+    /// - Complexity: O(width * height)
+    private func validateAndFixConnectivity(config: DungeonConfig, tiles: inout [Tile], rooms: [Rect]) {
+        guard let firstRoom = rooms.first else { return }
+        let start = firstRoom.center
+        
+        // Find all floor tiles and mark which are reachable
+        var reachable = Array(repeating: false, count: config.width * config.height)
+        var toVisit = [(start.0, start.1)]
+        var visitIndex = 0
+        
+        // Flood fill from start position
+        while visitIndex < toVisit.count {
+            let (x, y) = toVisit[visitIndex]
+            visitIndex += 1
+            
+            let idx = x + y * config.width
+            if reachable[idx] { continue }
+            reachable[idx] = true
+            
+            // Check 4 directions
+            for (dx, dy) in [(-1,0), (1,0), (0,-1), (0,1)] {
+                let nx = x + dx, ny = y + dy
+                if inBounds(nx, ny, config.width, config.height) {
+                    let nidx = nx + ny * config.width
+                    let tile = tiles[nidx]
+                    if !reachable[nidx] && (tile.kind == .floor || tile.kind == .sidewalk) {
+                        toVisit.append((nx, ny))
+                    }
+                }
+            }
+        }
+        
+        // Find isolated floor areas and create connections
+        for (roomIndex, room) in rooms.enumerated() {
+            var roomReachable = false
+            
+            // Check if any part of the room is reachable
+            for x in room.x..<(room.x + room.w) {
+                for y in room.y..<(room.y + room.h) {
+                    let idx = x + y * config.width
+                    if tiles[idx].kind == .floor && reachable[idx] {
+                        roomReachable = true
+                        break
+                    }
+                }
+                if roomReachable { break }
+            }
+            
+            // If room is not reachable, create an emergency connection
+            if !roomReachable {
+                createEmergencyConnection(room: room, config: config, tiles: &tiles, reachable: reachable)
+            }
+        }
+    }
+    
+    /// Creates an emergency connection from an isolated room to the main network.
+    ///
+    /// Finds the shortest path from the isolated room to any reachable area
+    /// and carves a corridor to establish connectivity.
+    ///
+    /// - Parameters:
+    ///   - room: The isolated room that needs connection
+    ///   - config: Generation configuration for dimensions
+    ///   - tiles: Tile array to modify
+    ///   - reachable: Array indicating which positions are reachable from start
+    /// - Complexity: O(width * height)
+    private func createEmergencyConnection(room: Rect, config: DungeonConfig, tiles: inout [Tile], reachable: [Bool]) {
+        let roomCenter = room.center
+        var shortestDistance = Int.max
+        var bestTarget: (Int, Int)?
+        
+        // Find the closest reachable floor tile
+        for y in 0..<config.height {
+            for x in 0..<config.width {
+                let idx = x + y * config.width
+                if reachable[idx] && (tiles[idx].kind == .floor || tiles[idx].kind == .sidewalk) {
+                    let distance = abs(x - roomCenter.0) + abs(y - roomCenter.1)
+                    if distance < shortestDistance {
+                        shortestDistance = distance
+                        bestTarget = (x, y)
+                    }
+                }
+            }
+        }
+        
+        // Create a simple L-shaped corridor to the target
+        if let target = bestTarget {
+            let (tx, ty) = target
+            let (rx, ry) = roomCenter
+            
+            // Horizontal segment
+            let startX = min(rx, tx), endX = max(rx, tx)
+            for x in startX...endX {
+                let idx = x + ry * config.width
+                if tiles[idx].kind == .wall {
+                    tiles[idx].kind = .floor
+                }
+            }
+            
+            // Vertical segment
+            let startY = min(ry, ty), endY = max(ry, ty)
+            for y in startY...endY {
+                let idx = tx + y * config.width
+                if tiles[idx].kind == .wall {
+                    tiles[idx].kind = .floor
+                }
+            }
+            
+            // Ensure there's a door to the room if needed
+            let doorType: TileKind = config.cityLayout ? .driveway : .doorClosed
+            
+            // Find a good spot for the room entrance along the new corridor
+            for x in room.x..<(room.x + room.w) {
+                for yEdge in [room.y - 1, room.y + room.h] {
+                    if yEdge >= 0 && yEdge < config.height {
+                        let idx = x + yEdge * config.width
+                        if tiles[idx].kind == .wall {
+                            let adjacentFloors = countAdjacentFloors(x: x, y: yEdge, tiles: tiles, width: config.width, height: config.height)
+                            if adjacentFloors > 0 {
+                                tiles[idx].kind = doorType
+                                return
+                            }
+                        }
+                    }
+                }
+            }
+            
+            for y in room.y..<(room.y + room.h) {
+                for xEdge in [room.x - 1, room.x + room.w] {
+                    if xEdge >= 0 && xEdge < config.width {
+                        let idx = xEdge + y * config.width
+                        if tiles[idx].kind == .wall {
+                            let adjacentFloors = countAdjacentFloors(x: xEdge, y: y, tiles: tiles, width: config.width, height: config.height)
+                            if adjacentFloors > 0 {
+                                tiles[idx].kind = doorType
+                                return
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
