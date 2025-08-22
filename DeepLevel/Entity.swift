@@ -4,6 +4,7 @@ import SpriteKit
 enum EntityKind: String {
     case player = "Foxy"
     case monster = "Stedenko"
+    case charmed = "Charmed"
     case item // Add more kinds as needed, with rawValue as the asset name if you use them
 }
 
@@ -68,6 +69,24 @@ final class Monster: Entity {
                    color: .systemGreen,
                    size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
         hp = 3
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}
+
+/// Charmed entity that moves randomly until charmed, then follows the player.
+final class Charmed: Entity {
+    var isCharmed: Bool = false
+    var roamTarget: (Int, Int)? = nil
+    var lastHealTime: TimeInterval = 0
+    
+    init(gridX: Int, gridY: Int, tileSize: CGFloat) {
+        super.init(kind: .charmed,
+                   gridX: gridX,
+                   gridY: gridY,
+                   color: .systemPurple,
+                   size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
+        hp = 1
+        blocksMovement = false // Charmed entities don't block movement
     }
     required init?(coder: NSCoder) { fatalError() }
 }
