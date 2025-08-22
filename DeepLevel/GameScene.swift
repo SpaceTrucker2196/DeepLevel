@@ -48,7 +48,7 @@ final class GameScene: SKScene {
     // FOV
     private var fogNode: SKSpriteNode?
     private var fogOfWar: FogOfWar?
-    private let fovRadius: Int = 20
+    private let fovRadius: Int = 3
     // Parallax sky for cityMap
     private var parallaxSky: ParallaxSky?
     
