@@ -59,10 +59,10 @@ struct DungeonConfig {
     var secretRoomChance: Double = 0.08
     
     /// Whether to add 1-tile thick wall borders around rooms like sidewalks.
-    var roomBorders: Bool = false
+    var roomBorders: Bool = true
     
     /// Whether to generate city layout with 6x6 blocks and 4-tile wide streets.
-    var cityLayout: Bool = false
+    var cityLayout: Bool = true
     
     /// Width of city streets in tiles (only used when cityLayout is true).
     var streetWidth: Int = 4

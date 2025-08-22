@@ -3,7 +3,7 @@ import SpriteKit
 /// Enum representing different entity types in the game, with raw values for texture names.
 enum EntityKind: String {
     case player = "Foxy"
-    case monster = "Ursa"
+    case monster = "Stedenko"
     case item // Add more kinds as needed, with rawValue as the asset name if you use them
 }
 
