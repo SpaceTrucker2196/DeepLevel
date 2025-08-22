@@ -188,10 +188,11 @@ final class BSPGenerator: DungeonGenerating {
         traverse(0)
         
         // Place hiding areas
-        placeHidingAreas(config: config, rng: &rng, tiles: &tiles, rooms: rooms)
         
         let rooms = nodes.compactMap { $0.room }
         let start = rooms.first?.center ?? (config.width/2, config.height/2)
+        placeHidingAreas(config: config, rng: &rng, tiles: &tiles, rooms: rooms)
+
         return DungeonMap(width: config.width,
                           height: config.height,
                           tiles: tiles,

@@ -191,6 +191,7 @@ final class GameScene: SKScene {
                 case .doorSecret: group = tileRefs.secretDoor
                 case .sidewalk: group = tileRefs.sidewalk
                 case .driveway: group = tileRefs.driveway
+                case .hidingArea: group = tileRefs.hidingArea
                 }
                 tileMap.setTileGroup(group, forColumn: x, row: y)
             }

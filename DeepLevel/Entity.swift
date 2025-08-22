@@ -4,7 +4,7 @@ import SpriteKit
 enum EntityKind: String {
     case player = "Foxy"
     case monster = "Stedenko"
-    case charmed = "Charmed"
+    case charmed = "CoolBear"
     case item // Add more kinds as needed, with rawValue as the asset name if you use them
 }
 
