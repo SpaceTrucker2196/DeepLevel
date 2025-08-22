@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "sidewalk.png",
+      "filename" : "Sidewalk.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "sidewalk@2x.png",
+      "filename" : "Sidewalk@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "sidewalk@3x.png",
+      "filename" : "Sidewalk@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

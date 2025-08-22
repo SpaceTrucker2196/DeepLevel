@@ -89,7 +89,7 @@ final class FogOfWar: SKNode {
                     fogTile.alpha = 0.0
                 } else if mapTile.explored {
                     // Explored but not visible - partial fog (dimmed)
-                    fogTile.alpha = 0.5
+                    fogTile.alpha = 0.8
                 } else {
                     // Never explored - full fog
                     fogTile.alpha = 1.0
@@ -112,7 +112,7 @@ final class FogOfWar: SKNode {
         guard tileIndex < fogTiles.count else { return }
         
         let fogTile = fogTiles[tileIndex]
-        fogTile.run(SKAction.fadeAlpha(to: toAlpha, duration: 0.3))
+        fogTile.run(SKAction.fadeAlpha(to: toAlpha, duration: 10.3))
     }
 }
 

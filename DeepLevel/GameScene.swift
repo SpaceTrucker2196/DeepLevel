@@ -48,8 +48,7 @@ final class GameScene: SKScene {
     // FOV
     private var fogNode: SKSpriteNode?
     private var fogOfWar: FogOfWar?
-    private let fovRadius: Int = 10
-    
+    private let fovRadius: Int = 20
     // Parallax sky for cityMap
     private var parallaxSky: ParallaxSky?
     
@@ -98,10 +97,10 @@ final class GameScene: SKScene {
     
     // MARK: - Public API for Testing
     /// Returns the available algorithms for testing purposes.
-    func getAvailableAlgorithms() -> [GenerationAlgorithm] {
-        return algorithms
-    }
-    
+//    func getAvailableAlgorithms() -> [GenerationAlgorithm] {
+//        return algorithms
+//    }
+//    
     /// Returns the current algorithm index for testing purposes.
     func getCurrentAlgorithmIndex() -> Int {
         return pendingAlgoIndex % algorithms.count
@@ -135,12 +134,12 @@ final class GameScene: SKScene {
         return algorithms
     }
     
-    /// Returns the currently selected algorithm index for testing purposes.
-    ///
-    /// - Returns: The current algorithm index
-    func getCurrentAlgorithmIndex() -> Int {
-        return pendingAlgoIndex
-    }
+//    /// Returns the currently selected algorithm index for testing purposes.
+//    ///
+//    /// - Returns: The current algorithm index
+//    func getCurrentAlgorithmIndex() -> Int {
+//        return pendingAlgoIndex
+//    }
     
     // MARK: - Setup Helpers
     private func setupCameraIfNeeded() {
