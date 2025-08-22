@@ -26,13 +26,19 @@ final class TileSetBuilder {
         
         /// Tile group for secret door rendering.
         let secretDoor: SKTileGroup
+        
+        /// Tile group for sidewalk rendering (city layout).
+        let sidewalk: SKTileGroup
+        
+        /// Tile group for driveway rendering (city layout).
+        let driveway: SKTileGroup
     }
     
     /// Builds a complete tile set with all necessary tile groups.
     ///
     /// Creates textures for different tile types including floor variants,
-    /// walls, and doors, then assembles them into a SpriteKit tile set
-    /// suitable for tile map rendering.
+    /// walls, doors, sidewalks, and driveways, then assembles them into a SpriteKit 
+    /// tile set suitable for tile map rendering.
     ///
     /// - Parameter tileSize: Size of each tile in points
     /// - Returns: A tuple containing the complete tile set and tile group references
@@ -43,6 +49,8 @@ final class TileSetBuilder {
         let wallTexture   = SKColor(white: 0.10, alpha: 1).dl_texture(square: tileSize)
         let doorTexture   = SKColor.brown.dl_texture(square: tileSize)
         let secretTexture = SKColor.purple.dl_texture(square: tileSize)
+        let sidewalkTexture = SKColor(white: 0.85, alpha: 1).dl_texture(square: tileSize)
+        let drivewayTexture = SKColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1).dl_texture(square: tileSize)
         
         /// Creates a named tile group from a texture.
         ///
@@ -61,8 +69,10 @@ final class TileSetBuilder {
         let wallGroup   = makeGroup(named: "wall", texture: wallTexture)
         let doorGroup   = makeGroup(named: "doorClosed", texture: doorTexture)
         let secretGroup = makeGroup(named: "doorSecret", texture: secretTexture)
+        let sidewalkGroup = makeGroup(named: "sidewalk", texture: sidewalkTexture)
+        let drivewayGroup = makeGroup(named: "driveway", texture: drivewayTexture)
         
-        let groups = floorGroups + [wallGroup, doorGroup, secretGroup]
+        let groups = floorGroups + [wallGroup, doorGroup, secretGroup, sidewalkGroup, drivewayGroup]
         
         // Basic initializer (broadest compatibility)
         let tileSet = SKTileSet(tileGroups: groups)
@@ -70,7 +80,9 @@ final class TileSetBuilder {
         let refs = TileRefs(floorVariants: floorGroups,
                             wall: wallGroup,
                             door: doorGroup,
-                            secretDoor: secretGroup)
+                            secretDoor: secretGroup,
+                            sidewalk: sidewalkGroup,
+                            driveway: drivewayGroup)
         return (tileSet, refs)
     }
     

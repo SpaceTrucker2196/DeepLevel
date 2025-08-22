@@ -30,6 +30,9 @@ config.roomMinSize = 4
 config.roomMaxSize = 10
 config.secretRoomChance = 0.08
 config.roomBorders = true  // Add 1-tile borders around rooms
+config.cityLayout = true   // Enable city layout with 6x6 blocks and wide streets
+config.streetWidth = 4     // 4-tile wide streets
+config.cityBlockSize = 6   // 6x6 tile city blocks
 ```
 
 ### Room Borders
@@ -42,6 +45,18 @@ Enable `roomBorders` to add 1-tile thick wall borders around each room, creating
 - Works with all dungeon generation algorithms
 
 When enabled, a 6x4 room becomes a 4x2 interior with 1-tile walls on all sides.
+
+### City Layout
+
+Enable `cityLayout` to transform the traditional dungeon into a modern city grid. This feature:
+
+- Creates 6x6 tile city blocks instead of variable-sized rooms
+- Generates 4-tile wide streets with 1-tile sidewalk borders on each side
+- Places driveways instead of doors to connect city blocks to streets
+- Uses a regular grid pattern for predictable urban navigation
+- Adds new tile types: `sidewalk` for walkable street borders and `driveway` for block entrances
+
+When enabled with default settings, the city uses a regular grid where each city block is 6x6 tiles, separated by 6-tile wide streets (4 tiles of street + 2 tiles of sidewalk borders).
 
 ## Binary Space Partitioning (BSP)
 
@@ -93,13 +108,14 @@ config.cellularSteps = 5        // Smoothing iterations
 
 ## Algorithm Comparison
 
-| Feature | Room-Corridor | BSP | Cellular |
-|---------|---------------|-----|----------|
-| Room Definition | Explicit rectangular rooms | Varied organic rooms | Open cave areas |
-| Connectivity | Corridor network | Hierarchical tree | Single large space |
-| Predictability | High | Medium | Low |
-| Navigation | Grid-friendly | Moderate complexity | Freeform |
-| Doors | Automatic placement | Possible | Not applicable |
+| Feature | Room-Corridor | Room-Corridor (City) | BSP | Cellular |
+|---------|---------------|---------------------|-----|----------|
+| Room Definition | Explicit rectangular rooms | 6x6 city blocks | Varied organic rooms | Open cave areas |
+| Connectivity | Corridor network | Grid street system | Hierarchical tree | Single large space |
+| Predictability | High | Very High | Medium | Low |
+| Navigation | Grid-friendly | City grid navigation | Moderate complexity | Freeform |
+| Doors | Automatic placement | Driveways to streets | Possible | Not applicable |
+| Street Layout | Single-tile corridors | 4-tile wide streets with sidewalks | Variable corridors | N/A |
 
 ## Performance Considerations
 
