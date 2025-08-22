@@ -50,8 +50,8 @@ final class GameScene: SKScene {
     private let fovRadius: Int = 10
     
     // Algorithm rotation
-    private var pendingAlgoIndex = 0
-    private let algorithms: [GenerationAlgorithm] = [.roomsCorridors, .bsp, .cellular]
+    private var pendingAlgoIndex = 3  // Start with cityMap (index 3) to match DungeonConfig default
+    private let algorithms: [GenerationAlgorithm] = [.roomsCorridors, .bsp, .cellular, .cityMap]
     
     // Movement (tap or queued)
     private var movementDir: (dx: Int, dy: Int) = (0,0)
@@ -110,6 +110,20 @@ final class GameScene: SKScene {
     func cycleAlgorithm() {
         pendingAlgoIndex = (pendingAlgoIndex + 1) % algorithms.count
         regenerate(seed: currentSeed)
+    }
+    
+    /// Returns the array of available algorithms for testing purposes.
+    ///
+    /// - Returns: Array of all available generation algorithms
+    func getAvailableAlgorithms() -> [GenerationAlgorithm] {
+        return algorithms
+    }
+    
+    /// Returns the currently selected algorithm index for testing purposes.
+    ///
+    /// - Returns: The current algorithm index
+    func getCurrentAlgorithmIndex() -> Int {
+        return pendingAlgoIndex
     }
     
     // MARK: - Setup Helpers

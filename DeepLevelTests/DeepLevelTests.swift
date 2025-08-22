@@ -17,14 +17,72 @@ import Testing
 /// - Since: 1.0.0
 struct DeepLevelTests {
 
-    /// Example test method demonstrating testing framework usage.
+    /// Tests that GameScene includes all available algorithms.
     ///
-    /// Placeholder test method that can be expanded to verify specific
-    /// functionality as the application develops.
+    /// Verifies that the GameScene algorithms array contains all generation
+    /// algorithms and can cycle through them properly.
     ///
     /// - Throws: Any errors encountered during test execution
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test func testGameSceneAlgorithmInclusion() async throws {
+        // Create a GameScene to test algorithm array
+        let scene = GameScene()
+        let algorithms = scene.getAvailableAlgorithms()
+        
+        // Verify all algorithm types are included
+        #expect(algorithms.contains(.roomsCorridors))
+        #expect(algorithms.contains(.bsp))
+        #expect(algorithms.contains(.cellular))
+        #expect(algorithms.contains(.cityMap))
+        
+        // Verify we have exactly 4 algorithms
+        #expect(algorithms.count == 4)
+    }
+    
+    /// Tests that the default configuration can be properly applied.
+    ///
+    /// Verifies that the default algorithm setting in DungeonConfig is respected
+    /// when generating dungeons, ensuring the app starts with the correct algorithm.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testDefaultAlgorithmConfiguration() async throws {
+        // Test default config uses cityMap
+        let defaultConfig = DungeonConfig()
+        #expect(defaultConfig.algorithm == .cityMap)
+        
+        // Generate using default config to ensure it works
+        let generator = DungeonGenerator(config: defaultConfig)
+        let map = generator.generate()
+        
+        // Verify the map was generated successfully
+        #expect(map.width == defaultConfig.width)
+        #expect(map.height == defaultConfig.height)
+        #expect(map.tiles.count == defaultConfig.width * defaultConfig.height)
+        
+        // Verify city map specific tiles exist when using cityMap algorithm
+        let tileKinds = Set(map.tiles.map { $0.kind })
+        let citySpecificTiles: [TileKind] = [.street, .sidewalk, .park, .residential1, .urban1, .retail]
+        let hasCityTiles = citySpecificTiles.contains { tileKinds.contains($0) }
+        #expect(hasCityTiles, "City map should contain city-specific tile types")
+    }
+    
+    /// Tests that GameScene starts with the correct algorithm.
+    ///
+    /// Verifies that the GameScene initializes with the same default algorithm
+    /// as specified in DungeonConfig, ensuring consistency on app startup.
+    ///
+    /// - Throws: Any errors encountered during test execution  
+    @Test func testGameSceneStartsWithCorrectAlgorithm() async throws {
+        // Create a new GameScene
+        let scene = GameScene()
+        let algorithms = scene.getAvailableAlgorithms()
+        let currentIndex = scene.getCurrentAlgorithmIndex()
+        
+        // Verify the current algorithm matches the default config
+        let currentAlgorithm = algorithms[currentIndex]
+        let defaultConfig = DungeonConfig()
+        
+        #expect(currentAlgorithm == defaultConfig.algorithm)
+        #expect(currentAlgorithm == .cityMap)
     }
     
     /// Tests room border functionality for dungeon generation.
@@ -90,6 +148,85 @@ struct DeepLevelTests {
         
         // Bordered rooms should have fewer floor tiles due to the border walls
         #expect(borderedFloorCount <= normalFloorCount)
+    }
+    
+    /// Tests algorithm selection to ensure each algorithm generates appropriate tiles.
+    ///
+    /// Verifies that each generation algorithm produces its expected tile types
+    /// and that the TileSetBuilder can handle all tile varieties correctly.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testAlgorithmSelection() async throws {
+        // Test rooms and corridors algorithm
+        var roomsConfig = DungeonConfig()
+        roomsConfig.width = 50
+        roomsConfig.height = 50
+        roomsConfig.algorithm = .roomsCorridors
+        roomsConfig.cityLayout = false
+        
+        let roomsGenerator = RoomsGenerator()
+        var rng = SystemRandomNumberGenerator()
+        let roomsMap = roomsGenerator.generate(config: roomsConfig, rng: &rng)
+        
+        // Verify rooms generator produces basic tile types (walls, floors, doors)
+        let roomsTileKinds = Set(roomsMap.tiles.map { $0.kind })
+        #expect(roomsTileKinds.contains(.wall))
+        #expect(roomsTileKinds.contains(.floor))
+        
+        // Should not contain city-specific tiles when cityLayout is false
+        #expect(!roomsTileKinds.contains(.street))
+        #expect(!roomsTileKinds.contains(.park))
+        #expect(!roomsTileKinds.contains(.retail))
+        
+        // Test city map algorithm
+        var cityConfig = DungeonConfig()
+        cityConfig.width = 50
+        cityConfig.height = 50
+        cityConfig.algorithm = .cityMap
+        
+        let cityGenerator = CityMapGenerator()
+        var cityRng = SystemRandomNumberGenerator()
+        let cityMap = cityGenerator.generate(config: cityConfig, rng: &cityRng)
+        
+        // Verify city generator produces city-specific tile types
+        let cityTileKinds = Set(cityMap.tiles.map { $0.kind })
+        #expect(cityTileKinds.contains(.street))
+        #expect(cityTileKinds.contains(.sidewalk))
+        
+        // Should contain at least one district type
+        let districtTypes: [TileKind] = [.park, .residential1, .residential2, .residential3, .residential4,
+                                       .urban1, .urban2, .urban3, .redLight, .retail]
+        let hasDistrictType = districtTypes.contains { cityTileKinds.contains($0) }
+        #expect(hasDistrictType)
+    }
+    
+    /// Tests that TileSetBuilder can handle all tile types from all algorithms.
+    ///
+    /// Verifies that the TileSetBuilder creates appropriate tile groups for
+    /// all possible tile kinds used by different generation algorithms.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testTileSetBuilderHandlesAllTileTypes() async throws {
+        // Build tile set and references
+        let (tileSet, tileRefs) = TileSetBuilder.build(tileSize: 32)
+        
+        // Verify all basic tile types have corresponding tile groups
+        #expect(tileRefs.wall.name == "wall")
+        #expect(tileRefs.door.name == "doorClosed") 
+        #expect(tileRefs.secretDoor.name == "doorSecret")
+        #expect(tileRefs.floorVariants.count > 0)
+        
+        // Verify city-specific tile types have tile groups
+        #expect(tileRefs.sidewalk.name == "sidewalk")
+        #expect(tileRefs.street.name == "street")
+        #expect(tileRefs.park.name == "park")
+        #expect(tileRefs.retail.name == "retail")
+        #expect(tileRefs.residential1.name == "residential1")
+        #expect(tileRefs.urban1.name == "urban1")
+        #expect(tileRefs.redLight.name == "redLight")
+        
+        // Verify tile set contains all expected groups
+        #expect(tileSet.tileGroups.count >= 17) // Should have at least 17 different tile groups
     }
     
     /// Tests city layout generation functionality.
