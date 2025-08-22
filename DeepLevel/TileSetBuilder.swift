@@ -12,6 +12,7 @@ final class TileSetBuilder {
         let secretDoor: SKTileGroup
         let sidewalk: SKTileGroup
         let driveway: SKTileGroup
+        let hidingArea: SKTileGroup
     }
     
     static func build(tileSize: CGFloat) -> (SKTileSet, TileRefs) {
@@ -26,6 +27,7 @@ final class TileSetBuilder {
         let secretTexture    = SKColor.purple.dl_texture(square: tileSize)
         let sidewalkTexture  = SKTexture(imageNamed: "Sidewalk")
         let drivewayTexture  = SKColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1).dl_texture(square: tileSize)
+        let hidingTexture    = SKColor(red: 0.2, green: 0.3, blue: 0.2, alpha: 1).dl_texture(square: tileSize)
         
         func makeGroup(named name: String, texture: SKTexture) -> SKTileGroup {
             let def = SKTileDefinition(texture: texture, size: CGSize(width: tileSize, height: tileSize))
@@ -40,8 +42,9 @@ final class TileSetBuilder {
         let secretGroup   = makeGroup(named: "doorSecret", texture: secretTexture)
         let sidewalkGroup = makeGroup(named: "sidewalk", texture: sidewalkTexture)
         let drivewayGroup = makeGroup(named: "driveway", texture: drivewayTexture)
+        let hidingGroup   = makeGroup(named: "hidingArea", texture: hidingTexture)
         
-        let groups = floorGroups + [wallGroup, doorGroup, secretGroup, sidewalkGroup, drivewayGroup]
+        let groups = floorGroups + [wallGroup, doorGroup, secretGroup, sidewalkGroup, drivewayGroup, hidingGroup]
         let tileSet = SKTileSet(tileGroups: groups)
         
         let refs = TileRefs(floorVariants: floorGroups,
@@ -49,7 +52,8 @@ final class TileSetBuilder {
                            door: doorGroup,
                            secretDoor: secretGroup,
                            sidewalk: sidewalkGroup,
-                           driveway: drivewayGroup)
+                           driveway: drivewayGroup,
+                           hidingArea: hidingGroup)
         return (tileSet, refs)
     }
 }
