@@ -47,7 +47,11 @@ final class GameScene: SKScene {
     
     // FOV
     private var fogNode: SKSpriteNode?
+    private var fogOfWar: FogOfWar?
     private let fovRadius: Int = 10
+    
+    // Parallax sky for cityMap
+    private var parallaxSky: ParallaxSky?
     
     // Algorithm rotation
     private var pendingAlgoIndex = 3  // Start with cityMap (index 3) to match DungeonConfig default
@@ -85,6 +89,7 @@ final class GameScene: SKScene {
         initialized = true
         backgroundColor = .black
         setupCameraIfNeeded()
+        setupParallaxSky()
         buildTileSetIfNeeded()
         generateDungeon(seed: nil)
         setupHUD()
@@ -137,6 +142,19 @@ final class GameScene: SKScene {
         }
     }
     
+    // MARK: - Parallax Sky Setup
+    private func setupParallaxSky() {
+        // Only setup parallax sky for cityMap algorithm
+        guard algorithms[pendingAlgoIndex % algorithms.count] == .cityMap else { return }
+        
+        parallaxSky?.removeFromParent()
+        let sky = ParallaxSky(sceneSize: size)
+        addChild(sky)
+        parallaxSky = sky
+        
+        if debugLogging { print("[GameScene] setupParallaxSky complete for cityMap") }
+    }
+    
     private func buildTileSetIfNeeded() {
         guard tileRefs == nil || tileMap == nil else { return }
         let (tileSet, refs) = TileSetBuilder.build(tileSize: tileSize)
@@ -182,6 +200,15 @@ final class GameScene: SKScene {
         spawnCharmed()
         recomputeFOV()
         updateHUD()
+        
+        // Update parallax sky for cityMap
+        if algorithms[pendingAlgoIndex % algorithms.count] == .cityMap {
+            setupParallaxSky()
+            if let player = player, let sky = parallaxSky {
+                sky.centerOn(position: CGPoint(x: CGFloat(player.gridX) * tileSize, 
+                                             y: CGFloat(player.gridY) * tileSize))
+            }
+        }
     }
     
     private func buildTileMap() {
@@ -229,14 +256,26 @@ final class GameScene: SKScene {
             }
         }
         
+        // Setup enhanced fog of war system
         fogNode?.removeFromParent()
-        let fog = SKSpriteNode(color: .black,
-                               size: CGSize(width: CGFloat(map.width)*tileSize,
-                                            height: CGFloat(map.height)*tileSize))
-        fog.anchorPoint = CGPoint(x: 0, y: 0)
-        fog.alpha = 0.0
-        addChild(fog)
-        fogNode = fog
+        fogOfWar?.removeFromParent()
+        
+        // Use enhanced fog of war for cityMap, simple fog for other algorithms
+        if algorithms[pendingAlgoIndex % algorithms.count] == .cityMap {
+            let enhancedFog = FogOfWar(mapWidth: map.width, mapHeight: map.height, tileSize: tileSize)
+            addChild(enhancedFog)
+            fogOfWar = enhancedFog
+            fogNode = nil
+        } else {
+            let fog = SKSpriteNode(color: .black,
+                                   size: CGSize(width: CGFloat(map.width)*tileSize,
+                                                height: CGFloat(map.height)*tileSize))
+            fog.anchorPoint = CGPoint(x: 0, y: 0)
+            fog.alpha = 0.0
+            addChild(fog)
+            fogNode = fog
+            fogOfWar = nil
+        }
         
         if debugLogging { print("[GameScene] buildTileMap complete") }
     }
@@ -371,6 +410,11 @@ final class GameScene: SKScene {
         let target = CGPoint(x: CGFloat(player.gridX)*tileSize + tileSize/2,
                              y: CGFloat(player.gridY)*tileSize + tileSize/2)
         camNode.position = camNode.position.lerp(to: target, t: cameraLerp)
+        
+        // Update parallax sky if present
+        if let parallaxSky = parallaxSky {
+            parallaxSky.updateParallax(cameraPosition: camNode.position)
+        }
     }
     
     // MARK: - Game Loop
@@ -822,7 +866,11 @@ final class GameScene: SKScene {
                     originY: player.gridY,
                     radius: fovRadius)
         self.map = map
-        // (Optional) If you want a real fog overlay, you'd update a mask here.
+        
+        // Update fog of war system
+        if let fogOfWar = fogOfWar {
+            fogOfWar.updateFog(for: map)
+        }
     }
     
     // MARK: - Touch Input (Tap to step toward tap)
