@@ -26,10 +26,10 @@ enum GenerationAlgorithm {
 /// - Since: 1.0.0
 struct DungeonConfig {
     /// Width of the generated dungeon in tiles.
-    var width: Int = 80
+    var width: Int = 180
     
     /// Height of the generated dungeon in tiles.
-    var height: Int = 50
+    var height: Int = 90
     
     /// Maximum number of rooms to attempt during generation.
     var maxRooms: Int = 20
