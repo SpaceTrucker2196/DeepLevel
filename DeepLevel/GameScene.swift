@@ -51,7 +51,7 @@ final class GameScene: SKScene {
     
     // Algorithm rotation
     private var pendingAlgoIndex = 0
-    private let algorithms: [GenerationAlgorithm] = [.roomsCorridors, .bsp, .cellular]
+    private let algorithms: [GenerationAlgorithm] = [.roomsCorridors, .bsp, .cellular, .cityMap]
     
     // Movement (tap or queued)
     private var movementDir: (dx: Int, dy: Int) = (0,0)

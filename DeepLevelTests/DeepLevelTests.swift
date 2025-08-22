@@ -620,5 +620,45 @@ struct DeepLevelTests {
         #expect(map.height == 30)
         #expect(map.tiles.count == 30 * 30)
     }
+    
+    /// Tests that all algorithms are available in the GameScene algorithms array.
+    ///
+    /// Verifies that the algorithm selection includes all defined algorithms,
+    /// ensuring no algorithm is missing from the cycling selection.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testAllAlgorithmsAvailable() async throws {
+        // All available algorithms from the enum
+        let allAlgorithms: [GenerationAlgorithm] = [.roomsCorridors, .bsp, .cellular, .cityMap]
+        
+        // Create a GameScene to access the algorithms array
+        let scene = GameScene(size: CGSize(width: 800, height: 600))
+        
+        // Use reflection to access the private algorithms array
+        let mirror = Mirror(reflecting: scene)
+        var sceneAlgorithms: [GenerationAlgorithm]?
+        
+        for child in mirror.children {
+            if child.label == "algorithms" {
+                sceneAlgorithms = child.value as? [GenerationAlgorithm]
+                break
+            }
+        }
+        
+        #expect(sceneAlgorithms != nil, "Could not access algorithms array from GameScene")
+        
+        guard let algorithms = sceneAlgorithms else { return }
+        
+        // Check that all algorithms are present
+        for algorithm in allAlgorithms {
+            #expect(algorithms.contains(algorithm), "Algorithm \(algorithm) is missing from GameScene algorithms array")
+        }
+        
+        // Check that the count matches (no duplicates, no extras)
+        #expect(algorithms.count == allAlgorithms.count, "GameScene algorithms count (\(algorithms.count)) doesn't match expected count (\(allAlgorithms.count))")
+        
+        // Verify specific order includes cityMap
+        #expect(algorithms.contains(.cityMap), "cityMap algorithm is missing from GameScene algorithms array")
+    }
 
 }
