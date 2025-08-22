@@ -45,6 +45,7 @@ final class DungeonGenerator {
         case .roomsCorridors: generator = RoomsGenerator()
         case .bsp: generator = BSPGenerator()
         case .cellular: generator = CellularAutomataGenerator()
+        case .cityMap: generator = CityMapGenerator()
         }
         var map = generator.generate(config: config, rng: &localRng)
         applyFloorVariants(&map, rng: &localRng)

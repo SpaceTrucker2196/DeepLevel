@@ -79,6 +79,7 @@ final class HUD: SKNode {
         case .roomsCorridors: return "Rooms"
         case .bsp: return "BSP"
         case .cellular: return "Cellular"
+        case .cityMap: return "CityMap"
         }
     }
 }

@@ -27,6 +27,47 @@ enum TileKind: UInt8 {
     
     /// Represents a hiding area that allows movement but provides concealment from monsters.
     case hidingArea
+    
+    // MARK: - City Map Tile Types
+    
+    /// Represents a park area (green) that allows movement and may contain hiding spots.
+    case park
+    
+    /// Represents a residential district type 1.
+    case residential1
+    
+    /// Represents a residential district type 2.
+    case residential2
+    
+    /// Represents a residential district type 3.
+    case residential3
+    
+    /// Represents a residential district type 4.
+    case residential4
+    
+    /// Represents an urban district type 1.
+    case urban1
+    
+    /// Represents an urban district type 2.
+    case urban2
+    
+    /// Represents an urban district type 3.
+    case urban3
+    
+    /// Represents a red light district that emits red light to adjacent tiles.
+    case redLight
+    
+    /// Represents a retail district with $ symbol tiles.
+    case retail
+    
+    /// Represents a sidewalk with a tree.
+    case sidewalkTree
+    
+    /// Represents a sidewalk with a fire hydrant.
+    case sidewalkHydrant
+    
+    /// Represents a street tile for 2-tile wide streets.
+    case street
 }
 
 /// Represents a single tile in the dungeon map with its properties and state.
@@ -48,6 +89,9 @@ struct Tile {
     /// Visual variation index for rendering different floor textures.
     var variant: Int = 0
     
+    /// Color cast for light/shadow effects (0.0 = no effect, negative = shadow, positive = light).
+    var colorCast: Float = 0.0
+    
     /// Indicates whether this tile blocks entity movement.
     ///
     /// - Returns: `true` if the tile prevents entities from moving through it.
@@ -56,6 +100,9 @@ struct Tile {
         case .wall: return true
         case .doorClosed, .doorSecret, .driveway: return true
         case .floor, .sidewalk, .hidingArea: return false
+        case .park, .residential1, .residential2, .residential3, .residential4: return false
+        case .urban1, .urban2, .urban3, .redLight, .retail: return false
+        case .sidewalkTree, .sidewalkHydrant, .street: return false
         }
     }
     
@@ -67,6 +114,9 @@ struct Tile {
         case .wall: return true
         case .doorClosed, .doorSecret, .driveway: return true
         case .floor, .sidewalk, .hidingArea: return false
+        case .park, .residential1, .residential2, .residential3, .residential4: return false
+        case .urban1, .urban2, .urban3, .redLight, .retail: return false
+        case .sidewalkTree, .sidewalkHydrant, .street: return false
         }
     }
     
@@ -75,7 +125,7 @@ struct Tile {
     /// - Returns: `true` if the tile hides entities from monster line of sight.
     var providesConcealment: Bool {
         switch kind {
-        case .hidingArea: return true
+        case .hidingArea, .park: return true
         default: return false
         }
     }
