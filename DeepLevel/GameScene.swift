@@ -66,6 +66,9 @@ final class GameScene: SKScene {
     // Debug
     private let debugLogging = false
     
+    // Charmed entity tracking
+    private var charmedScore: Int = 0
+    
     // Initialization guard (SpriteKit may call didMove multiple times if scene is re-presented)
     private var initialized = false
     
@@ -275,6 +278,7 @@ final class GameScene: SKScene {
               let player = player else { return }
         charmedEntities.forEach { $0.removeFromParent() }
         charmedEntities = []
+        charmedScore = 0  // Reset score when spawning new entities
         for _ in 0..<3 { // Spawn 3 charmed entities
             var attempts = 0
             while attempts < 50 {
@@ -304,6 +308,7 @@ final class GameScene: SKScene {
         hud.update(seed: currentSeed,
                    hp: player.hp,
                    algo: algorithms[pendingAlgoIndex % algorithms.count],
+                   charmedScore: charmedScore,
                    size: size)
     }
     
@@ -334,6 +339,7 @@ final class GameScene: SKScene {
         if currentTime - lastMonsterPathUpdate > monsterPathInterval {
             updateMonsters()
             updateCharmed()
+            updateEntityTransparency()  // Update transparency for entities in hiding areas
             lastMonsterPathUpdate = currentTime
         }
     }
@@ -412,12 +418,14 @@ final class GameScene: SKScene {
     private func charmEntity(_ charmed: Charmed) {
         if !charmed.isCharmed {
             charmed.isCharmed = true
+            charmedScore += 1  // Increment score when charming
             charmed.run(.sequence([
                 .scale(to: 1.3, duration: 0.1),
                 .scale(to: 1.0, duration: 0.1)
             ]))
             // Change color to indicate charmed status
             charmed.color = .systemBlue
+            updateHUD()  // Update HUD to reflect new score
             if debugLogging { print("[GameScene] Entity charmed!") }
         }
     }
@@ -486,8 +494,8 @@ final class GameScene: SKScene {
                                             start: (monster.gridX, monster.gridY),
                                             goal: (player.gridX, player.gridY)) { kind in
                     switch kind {
-                    case .wall, .doorClosed, .doorSecret, .driveway: return false
-                    case .floor, .sidewalk, .hidingArea: return true
+                    case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
+                    case .floor, .sidewalk: return true
                     }
                 }
                 if path.count > 1 {
@@ -507,8 +515,8 @@ final class GameScene: SKScene {
                                                 start: (monster.gridX, monster.gridY),
                                                 goal: lastPos) { kind in
                         switch kind {
-                        case .wall, .doorClosed, .doorSecret, .driveway: return false
-                        case .floor, .sidewalk, .hidingArea: return true
+                        case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
+                        case .floor, .sidewalk: return true
                         }
                     }
                     if path.count > 1 {
@@ -555,8 +563,8 @@ final class GameScene: SKScene {
                                     start: (monster.gridX, monster.gridY),
                                     goal: target) { kind in
             switch kind {
-            case .wall, .doorClosed, .doorSecret, .driveway: return false
-            case .floor, .sidewalk, .hidingArea: return true
+            case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
+            case .floor, .sidewalk: return true
             }
         }
         
@@ -587,6 +595,20 @@ final class GameScene: SKScene {
               let player = player else { return }
               
         for charmed in charmedEntities {
+            // Check if any monster is within 2 tiles and remove charm
+            if charmed.isCharmed {
+                for monster in monsters {
+                    let dx = abs(monster.gridX - charmed.gridX)
+                    let dy = abs(monster.gridY - charmed.gridY)
+                    if dx <= 2 && dy <= 2 {
+                        charmed.isCharmed = false
+                        charmed.color = .systemPurple  // Reset to original color
+                        if debugLogging { print("[GameScene] Charm removed by nearby monster") }
+                        break
+                    }
+                }
+            }
+            
             if charmed.isCharmed {
                 // Follow the player when charmed
                 followPlayer(charmed: charmed, map: map, player: player)
@@ -598,6 +620,12 @@ final class GameScene: SKScene {
     }
     
     private func followPlayer(charmed: Charmed, map: DungeonMap, player: Entity) {
+        // Check if charmed is in hiding area - if so, stop movement
+        let currentTile = map.tiles[map.index(x: charmed.gridX, y: charmed.gridY)]
+        if currentTile.kind == .hidingArea {
+            return  // Stop movement when in hiding area
+        }
+        
         // Use pathfinding to move toward the player
         let path = Pathfinder.aStar(map: map,
                                     start: (charmed.gridX, charmed.gridY),
@@ -622,6 +650,12 @@ final class GameScene: SKScene {
     }
     
     private func roamCharmed(charmed: Charmed, map: DungeonMap) {
+        // Check if charmed is in hiding area - if so, stop movement
+        let currentTile = map.tiles[map.index(x: charmed.gridX, y: charmed.gridY)]
+        if currentTile.kind == .hidingArea {
+            return  // Stop movement when in hiding area
+        }
+        
         // If no roam target or reached current target, pick a new one
         if charmed.roamTarget == nil || 
            (charmed.roamTarget!.0 == charmed.gridX && charmed.roamTarget!.1 == charmed.gridY) {
@@ -654,6 +688,22 @@ final class GameScene: SKScene {
         } else {
             // Can't reach target, pick a new one
             charmed.roamTarget = findRandomRoamTarget(map: map)
+        }
+    }
+    
+    private func updateEntityTransparency() {
+        guard let map = map else { return }
+        
+        // Update player transparency
+        if let player = player {
+            let playerTile = map.tiles[map.index(x: player.gridX, y: player.gridY)]
+            player.alpha = playerTile.kind == .hidingArea ? 0.5 : 1.0
+        }
+        
+        // Update charmed entities transparency
+        for charmed in charmedEntities {
+            let charmedTile = map.tiles[map.index(x: charmed.gridX, y: charmed.gridY)]
+            charmed.alpha = charmedTile.kind == .hidingArea ? 0.5 : 1.0
         }
     }
     

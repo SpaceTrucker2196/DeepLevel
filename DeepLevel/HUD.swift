@@ -17,13 +17,16 @@ final class HUD: SKNode {
     /// Label displaying the active dungeon generation algorithm.
     private let algoLabel = SKLabelNode(fontNamed: "Menlo")
     
+    /// Label displaying the number of charmed entities.
+    private let charmedLabel = SKLabelNode(fontNamed: "Menlo")
+    
     /// Initializes the HUD with configured label nodes.
     ///
     /// Sets up all labels with consistent font, size, and alignment
     /// properties for uniform appearance in the game interface.
     override init() {
         super.init()
-        [seedLabel, hpLabel, algoLabel].forEach {
+        [seedLabel, hpLabel, algoLabel, charmedLabel].forEach {
             $0.fontSize = 12
             $0.horizontalAlignmentMode = .left
             $0.verticalAlignmentMode = .top
@@ -43,16 +46,18 @@ final class HUD: SKNode {
     ///   - seed: Current generation seed, or nil for random generation
     ///   - hp: Player's current health points
     ///   - algo: Active dungeon generation algorithm
+    ///   - charmedScore: Number of entities charmed by the player
     ///   - size: Camera view size for positioning calculations
     ///   - safeInset: Margin from screen edges for safe positioning
     /// - Complexity: O(1)
-    func update(seed: UInt64?, hp: Int, algo: GenerationAlgorithm, size: CGSize, safeInset: CGFloat = 8) {
+    func update(seed: UInt64?, hp: Int, algo: GenerationAlgorithm, charmedScore: Int, size: CGSize, safeInset: CGFloat = 8) {
         seedLabel.text = "Seed: \(seed.map(String.init) ?? "random")"
         hpLabel.text = "HP: \(hp)"
         algoLabel.text = "Algo: \(algoName(algo))"
+        charmedLabel.text = "Charmed: \(charmedScore)"
         
         // Layout stack at top-left of the camera's coordinate space
-        let labels = [seedLabel, hpLabel, algoLabel]
+        let labels = [seedLabel, hpLabel, algoLabel, charmedLabel]
         for (i, lbl) in labels.enumerated() {
             lbl.position = CGPoint(
                 x: -size.width/2 + safeInset,
