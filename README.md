@@ -87,7 +87,12 @@ config.maxRooms = 20
 config.roomMinSize = 4
 config.roomMaxSize = 10
 config.secretRoomChance = 0.08
+config.roomBorders = true  // Add 1-tile borders around rooms
 ```
+
+### Room Borders
+
+Enable `roomBorders` to add 1-tile thick wall borders around each room, creating a sidewalk-like effect around rooms similar to city blocks. This feature works with all generation algorithms and provides visual separation between rooms and corridors.
 
 ## Binary Space Partitioning (BSP)
 
@@ -111,6 +116,7 @@ config.algorithm = .bsp
 config.bspMaxDepth = 5
 config.roomMinSize = 4
 config.roomMaxSize = 10
+config.roomBorders = true  // Add 1-tile borders around rooms
 ```
 
 ## Cellular Automata

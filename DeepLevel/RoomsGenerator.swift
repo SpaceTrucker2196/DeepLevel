@@ -160,11 +160,22 @@ final class RoomsGenerator: DungeonGenerating {
     ///   - room: The rectangular area to carve as floor
     ///   - tiles: The tile array to modify
     ///   - width: Map width for coordinate calculation
+    ///   - config: Configuration to determine if room borders should be added
     /// - Complexity: O(room area)
-    private func carveRoom(_ room: Rect, into tiles: inout [Tile], width: Int) {
-        for x in room.x..<room.x+room.w {
-            for y in room.y..<room.y+room.h {
-                tiles[x + y*width].kind = .floor
+    private func carveRoom(_ room: Rect, into tiles: inout [Tile], width: Int, config: DungeonConfig) {
+        if config.roomBorders {
+            // Carve interior only, leaving 1-tile border as walls
+            for x in (room.x+1)..<(room.x+room.w-1) {
+                for y in (room.y+1)..<(room.y+room.h-1) {
+                    tiles[x + y*width].kind = .floor
+                }
+            }
+        } else {
+            // Carve entire room area as floor (original behavior)
+            for x in room.x..<room.x+room.w {
+                for y in room.y..<room.y+room.h {
+                    tiles[x + y*width].kind = .floor
+                }
             }
         }
     }
@@ -220,7 +231,7 @@ final class RoomsGenerator: DungeonGenerating {
             let y = Int.random(in: 1..<(config.height - h - 1), using: &rng)
             let room = Rect(x: x, y: y, w: w, h: h)
             if rooms.contains(where: { $0.intersects(room) }) { continue }
-            carveRoom(room, into: &tiles, width: config.width)
+            carveRoom(room, into: &tiles, width: config.width, config: config)
             if let prev = rooms.last {
                 let (px, py) = prev.center
                 let (cx, cy) = room.center
@@ -287,7 +298,7 @@ final class RoomsGenerator: DungeonGenerating {
             let y = Int.random(in: 1..<(config.height - h - 1), using: &rng)
             let secret = Rect(x: x, y: y, w: w, h: h)
             if rooms.contains(where: { $0.intersects(secret) }) { continue }
-            carveRoom(secret, into: &tiles, width: config.width)
+            carveRoom(secret, into: &tiles, width: config.width, config: config)
             
             // Replace one perimeter wall tile adjacent to corridor or floor with secret door
             let candidates = perimeter(of: secret).filter { (tx,ty) in
