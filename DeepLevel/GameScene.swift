@@ -1,5 +1,6 @@
 import SpriteKit
 import GameplayKit
+import QuartzCore
 
 /// The main game scene managing dungeon exploration gameplay.
 ///
@@ -37,6 +38,7 @@ final class GameScene: SKScene {
     // Entities
     private var player: Entity?
     private var monsters: [Monster] = []
+    private var charmedEntities: [Charmed] = []
     
     // Camera / HUD
     private var camNode: SKCameraNode?
@@ -160,6 +162,7 @@ final class GameScene: SKScene {
         buildTileMap()
         placePlayer()
         spawnMonsters()
+        spawnCharmed()
         recomputeFOV()
         updateHUD()
     }
@@ -267,6 +270,33 @@ final class GameScene: SKScene {
         }
     }
     
+    private func spawnCharmed() {
+        guard let map = map,
+              let player = player else { return }
+        charmedEntities.forEach { $0.removeFromParent() }
+        charmedEntities = []
+        for _ in 0..<3 { // Spawn 3 charmed entities
+            var attempts = 0
+            while attempts < 50 {
+                attempts += 1
+                let x = Int.random(in: 0..<map.width)
+                let y = Int.random(in: 0..<map.height)
+                let t = map.tiles[map.index(x: x, y: y)]
+                if t.kind == .floor && (x,y) != (player.gridX, player.gridY) {
+                    // Make sure we don't spawn on monster locations
+                    let hasMonster = monsters.contains { $0.gridX == x && $0.gridY == y }
+                    if !hasMonster {
+                        let c = Charmed(gridX: x, gridY: y, tileSize: tileSize)
+                        addChild(c)
+                        c.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
+                        charmedEntities.append(c)
+                        break
+                    }
+                }
+            }
+        }
+    }
+    
     
     // MARK: - HUD / Camera
     private func updateHUD() {
@@ -303,6 +333,7 @@ final class GameScene: SKScene {
         updateCamera()
         if currentTime - lastMonsterPathUpdate > monsterPathInterval {
             updateMonsters()
+            updateCharmed()
             lastMonsterPathUpdate = currentTime
         }
     }
@@ -350,9 +381,19 @@ final class GameScene: SKScene {
             attackMonster(monster)
             return
         }
+        
+        // Check for charmed entity collision
+        if let charmed = charmedEntities.first(where: { $0.gridX == nx && $0.gridY == ny }) {
+            charmEntity(charmed)
+            return
+        }
+        
         player.moveTo(gridX: nx, gridY: ny, tileSize: tileSize)
         self.map = map
         recomputeFOV()
+        
+        // Check for healing when charmed entities are nearby in hiding areas
+        checkCharmedHealing()
     }
     
     private func attackMonster(_ monster: Monster) {
@@ -366,6 +407,58 @@ final class GameScene: SKScene {
             monsters.removeAll { $0 === monster }
         }
         if debugLogging { print("[GameScene] Monster attacked, hp now \(monster.hp)") }
+    }
+    
+    private func charmEntity(_ charmed: Charmed) {
+        if !charmed.isCharmed {
+            charmed.isCharmed = true
+            charmed.run(.sequence([
+                .scale(to: 1.3, duration: 0.1),
+                .scale(to: 1.0, duration: 0.1)
+            ]))
+            // Change color to indicate charmed status
+            charmed.color = .systemBlue
+            if debugLogging { print("[GameScene] Entity charmed!") }
+        }
+    }
+    
+    private func checkCharmedHealing() {
+        guard let map = map,
+              let player = player else { return }
+        
+        // Check if player is in hiding area
+        let playerTile = map.tiles[map.index(x: player.gridX, y: player.gridY)]
+        guard playerTile.kind == .hidingArea else { return }
+        
+        // Check for charmed entities adjacent to player
+        for charmed in charmedEntities {
+            if charmed.isCharmed {
+                let dx = abs(charmed.gridX - player.gridX)
+                let dy = abs(charmed.gridY - player.gridY)
+                // Adjacent means touching (including diagonally)
+                if dx <= 1 && dy <= 1 && (dx + dy > 0) {
+                    // Check if charmed is also in hiding area
+                    let charmedTile = map.tiles[map.index(x: charmed.gridX, y: charmed.gridY)]
+                    if charmedTile.kind == .hidingArea {
+                        // Heal player (but not too frequently)
+                        let currentTime = CACurrentMediaTime()
+                        if currentTime - charmed.lastHealTime > 2.0 { // 2 second cooldown
+                            player.hp += 1
+                            charmed.lastHealTime = currentTime
+                            updateHUD()
+                            
+                            // Visual feedback
+                            player.run(.sequence([
+                                .scale(to: 1.1, duration: 0.1),
+                                .scale(to: 1.0, duration: 0.1)
+                            ]))
+                            
+                            if debugLogging { print("[GameScene] Player healed by charmed entity! HP now \(player.hp)") }
+                        }
+                    }
+                }
+            }
+        }
     }
     
     private func updateMonsters() {
@@ -487,6 +580,81 @@ final class GameScene: SKScene {
             }
         }
         return nil
+    }
+    
+    private func updateCharmed() {
+        guard let map = map,
+              let player = player else { return }
+              
+        for charmed in charmedEntities {
+            if charmed.isCharmed {
+                // Follow the player when charmed
+                followPlayer(charmed: charmed, map: map, player: player)
+            } else {
+                // Roam randomly when not charmed
+                roamCharmed(charmed: charmed, map: map)
+            }
+        }
+    }
+    
+    private func followPlayer(charmed: Charmed, map: DungeonMap, player: Entity) {
+        // Use pathfinding to move toward the player
+        let path = Pathfinder.aStar(map: map,
+                                    start: (charmed.gridX, charmed.gridY),
+                                    goal: (player.gridX, player.gridY)) { kind in
+            switch kind {
+            case .wall, .doorClosed, .doorSecret, .driveway: return false
+            case .floor, .sidewalk, .hidingArea: return true
+            }
+        }
+        
+        if path.count > 1 {
+            let next = path[1]
+            // Don't move onto the player's position
+            if next.0 != player.gridX || next.1 != player.gridY {
+                // Also don't move onto monster positions
+                let hasMonster = monsters.contains { $0.gridX == next.0 && $0.gridY == next.1 }
+                if !hasMonster {
+                    charmed.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                }
+            }
+        }
+    }
+    
+    private func roamCharmed(charmed: Charmed, map: DungeonMap) {
+        // If no roam target or reached current target, pick a new one
+        if charmed.roamTarget == nil || 
+           (charmed.roamTarget!.0 == charmed.gridX && charmed.roamTarget!.1 == charmed.gridY) {
+            charmed.roamTarget = findRandomRoamTarget(map: map)
+        }
+        
+        guard let target = charmed.roamTarget else { return }
+        
+        // Move toward roam target
+        let path = Pathfinder.aStar(map: map,
+                                    start: (charmed.gridX, charmed.gridY),
+                                    goal: target) { kind in
+            switch kind {
+            case .wall, .doorClosed, .doorSecret, .driveway: return false
+            case .floor, .sidewalk, .hidingArea: return true
+            }
+        }
+        
+        if path.count > 1 {
+            let next = path[1]
+            // Don't move onto the player's or monster's position
+            if let player = player, (next.0 == player.gridX && next.1 == player.gridY) {
+                // Skip this move
+            } else {
+                let hasMonster = monsters.contains { $0.gridX == next.0 && $0.gridY == next.1 }
+                if !hasMonster {
+                    charmed.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                }
+            }
+        } else {
+            // Can't reach target, pick a new one
+            charmed.roamTarget = findRandomRoamTarget(map: map)
+        }
     }
     
     // MARK: - FOV

@@ -27,7 +27,6 @@ final class TileSetBuilder {
         let secretTexture    = SKColor.purple.dl_texture(square: tileSize)
         let sidewalkTexture  = SKTexture(imageNamed: "Sidewalk")
         let drivewayTexture  = SKColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1).dl_texture(square: tileSize)
-
         let hidingTexture    = SKTexture(imageNamed: "HidingSpot")
         
         func makeGroup(named name: String, texture: SKTexture) -> SKTileGroup {
