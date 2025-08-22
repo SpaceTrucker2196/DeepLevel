@@ -186,6 +186,8 @@ final class GameScene: SKScene {
                 case .wall: group = tileRefs.wall
                 case .doorClosed: group = tileRefs.door
                 case .doorSecret: group = tileRefs.secretDoor
+                case .sidewalk: group = tileRefs.sidewalk
+                case .driveway: group = tileRefs.driveway
                 }
                 tileMap.setTileGroup(group, forColumn: x, row: y)
             }
@@ -219,6 +221,8 @@ final class GameScene: SKScene {
         case .wall: group = tileRefs.wall
         case .doorClosed: group = tileRefs.door
         case .doorSecret: group = tileRefs.secretDoor
+        case .sidewalk: group = tileRefs.sidewalk
+        case .driveway: group = tileRefs.driveway
         }
         tileMap.setTileGroup(group, forColumn: x, row: y)
     }
@@ -330,7 +334,7 @@ final class GameScene: SKScene {
         let idx = map.index(x: nx, y: ny)
         var tile = map.tiles[idx]
         
-        if tile.kind == .doorClosed || tile.kind == .doorSecret {
+        if tile.kind == .doorClosed || tile.kind == .doorSecret || tile.kind == .driveway {
             tile.kind = .floor
             map.tiles[idx] = tile
             self.map = map
@@ -370,8 +374,8 @@ final class GameScene: SKScene {
                                         start: (monster.gridX, monster.gridY),
                                         goal: (player.gridX, player.gridY)) { kind in
                 switch kind {
-                case .wall, .doorClosed, .doorSecret: return false
-                case .floor: return true
+                case .wall, .doorClosed, .doorSecret, .driveway: return false
+                case .floor, .sidewalk: return true
                 }
             }
             if path.count > 1 {
