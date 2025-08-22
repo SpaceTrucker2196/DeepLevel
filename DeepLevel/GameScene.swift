@@ -49,6 +49,10 @@ final class GameScene: SKScene {
     private var fogNode: SKSpriteNode?
     private var fogOfWar: FogOfWar?
     private let fovRadius: Int = 3
+    
+    // Particle effects
+    private var particleManager: ParticleEffectsManager?
+    
     // Parallax sky for cityMap
     private var parallaxSky: ParallaxSky?
     
@@ -90,6 +94,10 @@ final class GameScene: SKScene {
         setupCameraIfNeeded()
         setupParallaxSky()
         buildTileSetIfNeeded()
+        
+        // Initialize particle effects manager
+        particleManager = ParticleEffectsManager(scene: self, tileSize: tileSize)
+        
         generateDungeon(seed: nil)
         setupHUD()
         if debugLogging { print("[GameScene] didMove complete") }
@@ -205,6 +213,7 @@ final class GameScene: SKScene {
         self.map = newMap
         
         buildTileMap()
+        createFireHydrantEffects()
         placePlayer()
         spawnMonsters()
         spawnCharmed()
@@ -341,6 +350,38 @@ final class GameScene: SKScene {
         addChild(p)
         p.moveTo(gridX: p.gridX, gridY: p.gridY, tileSize: tileSize, animated: false)
         player = p
+        
+        // Add movement trail for player
+        particleManager?.addMovementTrail(to: p)
+    }
+    
+    /// Helper method to move an entity and trigger trail effect
+    private func moveEntityWithTrail(_ entity: Entity, to position: (Int, Int)) {
+        let oldPosition = (entity.gridX, entity.gridY)
+        entity.moveTo(gridX: position.0, gridY: position.1, tileSize: tileSize)
+        particleManager?.onEntityMove(entity, from: oldPosition)
+    }
+
+    /// Creates particle effects for all fire hydrant tiles on the map
+    private func createFireHydrantEffects() {
+        guard let map = map, let particleManager = particleManager else { return }
+        
+        // Remove any existing fire hydrant effects
+        particleManager.removeAllEffects()
+        
+        // Scan the map for fire hydrant tiles
+        for y in 0..<map.height {
+            for x in 0..<map.width {
+                let tile = map.tiles[map.index(x: x, y: y)]
+                if tile.kind == .sidewalkHydrant {
+                    // Create particle effect with configurable offset
+                    // Using small random offsets to make hydrants feel more natural
+                    let offsetX: CGFloat = CGFloat.random(in: -8...8)
+                    let offsetY: CGFloat = CGFloat.random(in: -8...8)
+                    particleManager.createFireHydrantEffect(at: x, y: y, offsetX: offsetX, offsetY: offsetY)
+                }
+            }
+        }
     }
 
     private func spawnMonsters() {
@@ -363,6 +404,10 @@ final class GameScene: SKScene {
                         addChild(m)
                         m.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
                         monsters.append(m)
+                        
+                        // Add movement trail for monster
+                        particleManager?.addMovementTrail(to: m)
+                        
                         break
                     }
                 }
@@ -392,6 +437,10 @@ final class GameScene: SKScene {
                         addChild(c)
                         c.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
                         charmedEntities.append(c)
+                        
+                        // Add movement trail for charmed entity
+                        particleManager?.addMovementTrail(to: c)
+                        
                         break
                     }
                 }
@@ -438,6 +487,10 @@ final class GameScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         updatePlayerMovement()
         updateCamera()
+        
+        // Update particle effects
+        particleManager?.updateMovementTrails(currentTime: currentTime)
+        
         if currentTime - lastMonsterPathUpdate > monsterPathInterval {
             updateMonsters()
             updateCharmed()
@@ -496,8 +549,15 @@ final class GameScene: SKScene {
             return
         }
         
+        // Capture old position for trail effect
+        let oldPosition = (player.gridX, player.gridY)
+        
         player.moveTo(gridX: nx, gridY: ny, tileSize: tileSize)
         self.map = map
+        
+        // Trigger movement trail effect
+        particleManager?.onEntityMove(player, from: oldPosition)
+        
         recomputeFOV()
         
         // Check for healing when charmed entities are nearby in hiding areas
@@ -527,6 +587,10 @@ final class GameScene: SKScene {
             ]))
             // Change color to indicate charmed status
             charmed.color = .systemBlue
+            
+            // Add heart particle effect for charmed entity
+            particleManager?.addCharmedHeartEffect(to: charmed)
+            
             updateHUD()  // Update HUD to reflect new score
             if debugLogging { print("[GameScene] Entity charmed!") }
         }
@@ -633,7 +697,7 @@ final class GameScene: SKScene {
                         player.hp -= 1
                         updateHUD()
                     } else {
-                        monster.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                        moveEntityWithTrail(monster, to: next)
                     }
                 }
             } else {
@@ -669,7 +733,7 @@ final class GameScene: SKScene {
                     }
                     if path.count > 1 {
                         let next = path[1]
-                        monster.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                        moveEntityWithTrail(monster, to: next)
                         
                         // If reached last known position, clear it and start roaming
                         if next.0 == lastPos.0 && next.1 == lastPos.1 {
@@ -719,7 +783,7 @@ final class GameScene: SKScene {
         
         if path.count > 1 {
             let next = path[1]
-            monster.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+            moveEntityWithTrail(monster, to: next)
         } else {
             // Can't reach target, pick a new one
             monster.roamTarget = findRandomRoamTarget(map: map)
@@ -752,6 +816,10 @@ final class GameScene: SKScene {
                     if dx <= 2 && dy <= 2 {
                         charmed.isCharmed = false
                         charmed.color = .systemPurple  // Reset to original color
+                        
+                        // Remove heart particle effect when charm is lost
+                        particleManager?.removeCharmedHeartEffect(from: charmed)
+                        
                         if debugLogging { print("[GameScene] Charm removed by nearby monster") }
                         break
                     }
@@ -802,7 +870,7 @@ final class GameScene: SKScene {
                 // Also don't move onto monster positions
                 let hasMonster = monsters.contains { $0.gridX == next.0 && $0.gridY == next.1 }
                 if !hasMonster {
-                    charmed.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                    moveEntityWithTrail(charmed, to: next)
                 }
             }
         }
@@ -842,7 +910,7 @@ final class GameScene: SKScene {
             } else {
                 let hasMonster = monsters.contains { $0.gridX == next.0 && $0.gridY == next.1 }
                 if !hasMonster {
-                    charmed.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                    moveEntityWithTrail(charmed, to: next)
                 }
             }
         } else {
@@ -881,6 +949,9 @@ final class GameScene: SKScene {
         if let fogOfWar = fogOfWar {
             fogOfWar.updateFog(for: map)
         }
+        
+        // Update fire hydrant particle visibility based on line of sight
+        particleManager?.updateFireHydrantVisibility(map: map, playerX: player.gridX, playerY: player.gridY)
     }
     
     // MARK: - Touch Input (Tap to step toward tap)
