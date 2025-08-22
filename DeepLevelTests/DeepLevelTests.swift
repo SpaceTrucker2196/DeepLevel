@@ -300,5 +300,48 @@ struct DeepLevelTests {
         let isolatedAreas = totalFloors - reachableFloors
         return (allConnected: isolatedAreas == 0, isolatedAreas: isolatedAreas)
     }
+    
+    /// Tests Charmed entity creation and basic properties.
+    ///
+    /// Verifies that Charmed entities are created correctly with expected
+    /// initial state and properties.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testCharmedEntityCreation() async throws {
+        // Create a charmed entity
+        let charmed = Charmed(gridX: 5, gridY: 7, tileSize: 64.0)
+        
+        // Verify initial properties
+        #expect(charmed.kind == .charmed)
+        #expect(charmed.gridX == 5)
+        #expect(charmed.gridY == 7)
+        #expect(charmed.isCharmed == false)
+        #expect(charmed.hp == 1)
+        #expect(charmed.blocksMovement == false)
+        #expect(charmed.roamTarget == nil)
+        #expect(charmed.lastHealTime == 0)
+        
+        // Verify color is purple for uncharmed
+        #expect(charmed.color == .systemPurple)
+    }
+    
+    /// Tests EntityKind enum includes charmed type.
+    ///
+    /// Verifies that the charmed entity type was properly added to the enum.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testCharmedEntityKind() async throws {
+        let charmedKind = EntityKind.charmed
+        #expect(charmedKind.rawValue == "Charmed")
+        
+        // Test that we can create entities of all types
+        let player = Entity(kind: .player, gridX: 0, gridY: 0, color: .clear, size: CGSize(width: 64, height: 64))
+        let monster = Monster(gridX: 1, gridY: 1, tileSize: 64)
+        let charmed = Charmed(gridX: 2, gridY: 2, tileSize: 64)
+        
+        #expect(player.kind == .player)
+        #expect(monster.kind == .monster)
+        #expect(charmed.kind == .charmed)
+    }
 
 }
