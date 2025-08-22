@@ -96,6 +96,17 @@ final class GameScene: SKScene {
         if debugLogging { print("[GameScene] didMove complete") }
     }
     
+    // MARK: - Public API for Testing
+    /// Returns the available algorithms for testing purposes.
+    func getAvailableAlgorithms() -> [GenerationAlgorithm] {
+        return algorithms
+    }
+    
+    /// Returns the current algorithm index for testing purposes.
+    func getCurrentAlgorithmIndex() -> Int {
+        return pendingAlgoIndex % algorithms.count
+    }
+    
     // MARK: - Public API (e.g., for SwiftUI buttons)
     /// Regenerates the dungeon with a new or existing seed.
     ///
