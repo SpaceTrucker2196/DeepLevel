@@ -22,7 +22,7 @@ final class TileSetBuilder {
             grassTexture.dl_darkenedTexture(square: tileSize, darkness: [0.0, 0.18, 0.36][darkness])
         }
         
-        let treesTexture      = SKTexture(imageNamed: "Trees")
+        let treesTexture     = SKTexture(imageNamed: "Trees")
         let doorTexture      = SKColor.brown.dl_texture(square: tileSize)
         let secretTexture    = SKColor.purple.dl_texture(square: tileSize)
         let sidewalkTexture  = SKTexture(imageNamed: "Sidewalk")
