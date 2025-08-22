@@ -22,12 +22,12 @@ final class TileSetBuilder {
             grassTexture.dl_darkenedTexture(square: tileSize, darkness: [0.0, 0.18, 0.36][darkness])
         }
         
-        let treesTexture      = SKTexture(imageNamed: "Trees")
+        let treesTexture     = SKTexture(imageNamed: "Trees")
         let doorTexture      = SKColor.brown.dl_texture(square: tileSize)
         let secretTexture    = SKColor.purple.dl_texture(square: tileSize)
         let sidewalkTexture  = SKTexture(imageNamed: "Sidewalk")
         let drivewayTexture  = SKColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1).dl_texture(square: tileSize)
-        let hidingTexture    = SKColor(red: 0.2, green: 0.3, blue: 0.2, alpha: 1).dl_texture(square: tileSize)
+        let hidingTexture    = SKTexture(imageNamed: "HidingSpot")
         
         func makeGroup(named name: String, texture: SKTexture) -> SKTileGroup {
             let def = SKTileDefinition(texture: texture, size: CGSize(width: tileSize, height: tileSize))
