@@ -71,15 +71,15 @@ struct DungeonConfig {
     var streetWidth: Int = 4
     
     /// Size of city blocks in tiles (only used when cityLayout is true).
-    var cityBlockSize: Int = 6
+    var cityBlockSize: Int = 3
     
     // MARK: - City Map Algorithm Configuration
     
     /// Width of streets for city map algorithm (in tiles).
-    var cityMapStreetWidth: Int = 2
+    var cityMapStreetWidth: Int = 1
     
     /// Size of city blocks for city map algorithm (in tiles).
-    var cityMapBlockSize: Int = 10
+    var cityMapBlockSize: Int = 4
     
     /// Frequency of park districts (0.0 to 1.0).
     var parkFrequency: Double = 0.15
@@ -91,7 +91,7 @@ struct DungeonConfig {
     var urbanFrequency: Double = 0.25
     
     /// Frequency of red light districts (0.0 to 1.0).
-    var redLightFrequency: Double = 0.1
+    var redLightFrequency: Double = 0.5
     
     /// Frequency of retail districts (0.0 to 1.0).
     var retailFrequency: Double = 0.15

@@ -15,7 +15,8 @@ extension TileKind {
     var isSpawnSurface: Bool {
         switch self {
         case .floor,
-             .urban3:
+             .urban3,
+             .street :
             return true
         // If later you decide to allow these, just uncomment:
         // case .sidewalk, .sidewalkTree, .sidewalkHydrant, .park,
