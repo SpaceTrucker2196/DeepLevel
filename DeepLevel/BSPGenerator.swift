@@ -187,6 +187,7 @@ final class BSPGenerator: DungeonGenerating {
         }
         traverse(0)
 
+        // Place hiding areas
         
         // Place hiding areas
         
