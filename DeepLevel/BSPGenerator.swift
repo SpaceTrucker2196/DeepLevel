@@ -105,7 +105,16 @@ final class BSPGenerator: DungeonGenerating {
         /// - Parameter room: The rectangular area to carve as floor
         func carve(_ room: Rect) {
             if config.roomBorders {
-                // Carve interior only, leaving 1-tile border as walls
+                // Create solid border around room perimeter
+                for x in room.x..<room.x+room.w {
+                    for y in room.y..<room.y+room.h {
+                        if x == room.x || x == room.x+room.w-1 || y == room.y || y == room.y+room.h-1 {
+                            // Room border - make it solid so corridors cannot overwrite
+                            tiles[x + y*config.width].kind = .solid
+                        }
+                    }
+                }
+                // Carve interior only, leaving solid border
                 for x in (room.x+1)..<(room.x+room.w-1) {
                     for y in (room.y+1)..<(room.y+room.h-1) {
                         tiles[x + y*config.width].kind = .floor
@@ -173,7 +182,13 @@ final class BSPGenerator: DungeonGenerating {
         ///   - x2: Ending x coordinate
         ///   - y: Y coordinate of the corridor
         func carveH(_ x1: Int,_ x2: Int,_ y: Int) {
-            for x in min(x1,x2)...max(x1,x2) { tiles[x + y*config.width].kind = .floor }
+            for x in min(x1,x2)...max(x1,x2) { 
+                let idx = x + y*config.width
+                // Don't overwrite solid tiles
+                if tiles[idx].kind != .solid {
+                    tiles[idx].kind = .floor 
+                }
+            }
         }
         
         /// Carves a vertical corridor between two y coordinates.
@@ -183,7 +198,13 @@ final class BSPGenerator: DungeonGenerating {
         ///   - y2: Ending y coordinate
         ///   - x: X coordinate of the corridor
         func carveV(_ y1: Int,_ y2: Int,_ x: Int) {
-            for y in min(y1,y2)...max(y1,y2) { tiles[x + y*config.width].kind = .floor }
+            for y in min(y1,y2)...max(y1,y2) { 
+                let idx = x + y*config.width
+                // Don't overwrite solid tiles
+                if tiles[idx].kind != .solid {
+                    tiles[idx].kind = .floor 
+                }
+            }
         }
         traverse(0)
         

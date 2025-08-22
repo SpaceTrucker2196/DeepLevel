@@ -93,11 +93,12 @@ final class RoomsGenerator: DungeonGenerating {
     ///   - tiles: The tile array to examine
     ///   - w: Map width for bounds checking
     ///   - h: Map height for bounds checking
-    /// - Returns: `true` if the coordinate contains a wall or is out of bounds
+    /// - Returns: `true` if the coordinate contains a wall or solid tile or is out of bounds
     /// - Complexity: O(1)
     private func wallOrOut(_ x: Int, _ y: Int, _ tiles: [Tile], _ w: Int, _ h: Int) -> Bool {
         guard inBounds(x,y,w,h) else { return true }
-        return tiles[x + y*w].kind == .wall
+        let kind = tiles[x + y*w].kind
+        return kind == .wall || kind == .solid
     }
     
     /// Checks if coordinates are within map bounds.
@@ -164,7 +165,16 @@ final class RoomsGenerator: DungeonGenerating {
     /// - Complexity: O(room area)
     private func carveRoom(_ room: Rect, into tiles: inout [Tile], width: Int, config: DungeonConfig) {
         if config.roomBorders {
-            // Carve interior only, leaving 1-tile border as walls
+            // Create solid border around room perimeter
+            for x in room.x..<room.x+room.w {
+                for y in room.y..<room.y+room.h {
+                    if x == room.x || x == room.x+room.w-1 || y == room.y || y == room.y+room.h-1 {
+                        // Room border - make it solid so corridors cannot overwrite
+                        tiles[x + y*width].kind = .solid
+                    }
+                }
+            }
+            // Carve interior only, leaving solid border
             for x in (room.x+1)..<(room.x+room.w-1) {
                 for y in (room.y+1)..<(room.y+room.h-1) {
                     tiles[x + y*width].kind = .floor
@@ -192,7 +202,11 @@ final class RoomsGenerator: DungeonGenerating {
     private func carveHorizontalCorridor(from x1: Int, to x2: Int, at y: Int, into tiles: inout [Tile], width: Int) {
         let a = min(x1,x2), b = max(x1,x2)
         for x in a...b {
-            tiles[x + y*width].kind = .floor
+            let idx = x + y*width
+            // Don't overwrite solid tiles
+            if tiles[idx].kind != .solid {
+                tiles[idx].kind = .floor
+            }
         }
     }
     
@@ -208,7 +222,11 @@ final class RoomsGenerator: DungeonGenerating {
     private func carveVerticalCorridor(from y1: Int, to y2: Int, at x: Int, into tiles: inout [Tile], width: Int) {
         let a = min(y1,y2), b = max(y1,y2)
         for y in a...b {
-            tiles[x + y*width].kind = .floor
+            let idx = x + y*width
+            // Don't overwrite solid tiles
+            if tiles[idx].kind != .solid {
+                tiles[idx].kind = .floor
+            }
         }
     }
     

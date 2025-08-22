@@ -18,6 +18,9 @@ enum TileKind: UInt8 {
     
     /// Represents a secret door that appears as a wall but can be discovered.
     case doorSecret
+    
+    /// Represents a solid tile that cannot be carved through by corridors.
+    case solid
 }
 
 /// Represents a single tile in the dungeon map with its properties and state.
@@ -44,7 +47,7 @@ struct Tile {
     /// - Returns: `true` if the tile prevents entities from moving through it.
     var blocksMovement: Bool {
         switch kind {
-        case .wall: return true
+        case .wall, .solid: return true
         case .doorClosed, .doorSecret: return true
         case .floor: return false
         }
@@ -55,7 +58,7 @@ struct Tile {
     /// - Returns: `true` if the tile prevents seeing through it.
     var blocksSight: Bool {
         switch kind {
-        case .wall: return true
+        case .wall, .solid: return true
         case .doorClosed, .doorSecret: return true
         case .floor: return false
         }

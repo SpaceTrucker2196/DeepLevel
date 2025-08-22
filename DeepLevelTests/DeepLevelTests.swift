@@ -27,69 +27,130 @@ struct DeepLevelTests {
         // Write your test here and use APIs like `#expect(...)` to check expected conditions.
     }
     
-    /// Tests room border functionality for dungeon generation.
+    /// Tests solid room border functionality for dungeon generation.
     ///
-    /// Verifies that when room borders are enabled, rooms are carved with
-    /// 1-tile thick walls around their perimeter, like sidewalks on a city block.
+    /// Verifies that when room borders are enabled, rooms are created with
+    /// solid borders that corridors cannot overwrite, ensuring room integrity.
     ///
     /// - Throws: Any errors encountered during test execution
-    @Test func testRoomBorders() async throws {
+    @Test func testSolidRoomBorders() async throws {
         // Test configuration with borders enabled
         var config = DungeonConfig()
         config.width = 20
-        config.height = 15
-        config.maxRooms = 1
-        config.roomMinSize = 6
+        config.height = 20
+        config.maxRooms = 2
+        config.roomMinSize = 4
         config.roomMaxSize = 6
         config.roomBorders = true
         config.algorithm = .roomsCorridors
         
-        // Generate dungeon with borders
+        // Generate dungeon with solid borders
         let generator = RoomsGenerator()
         var rng = SystemRandomNumberGenerator()
-        let dungeonWithBorders = generator.generate(config: config, rng: &rng)
+        let dungeon = generator.generate(config: config, rng: &rng)
         
-        // Test configuration with borders disabled for comparison
-        config.roomBorders = false
-        let dungeonWithoutBorders = generator.generate(config: config, rng: &rng)
+        // Verify that the dungeon has rooms
+        #expect(dungeon.rooms.count > 0)
         
-        // Verify that the dungeon was generated
-        #expect(dungeonWithBorders.rooms.count > 0)
-        #expect(dungeonWithoutBorders.rooms.count > 0)
+        // Check that each room has solid borders
+        for room in dungeon.rooms {
+            // Check top and bottom borders
+            for x in room.x..<(room.x + room.w) {
+                let topIdx = x + room.y * config.width
+                let bottomIdx = x + (room.y + room.h - 1) * config.width
+                
+                if topIdx >= 0 && topIdx < dungeon.tiles.count {
+                    #expect(dungeon.tiles[topIdx].kind == .solid, "Top border should be solid at \(x), \(room.y)")
+                }
+                if bottomIdx >= 0 && bottomIdx < dungeon.tiles.count {
+                    #expect(dungeon.tiles[bottomIdx].kind == .solid, "Bottom border should be solid at \(x), \(room.y + room.h - 1)")
+                }
+            }
+            
+            // Check left and right borders
+            for y in room.y..<(room.y + room.h) {
+                let leftIdx = room.x + y * config.width
+                let rightIdx = (room.x + room.w - 1) + y * config.width
+                
+                if leftIdx >= 0 && leftIdx < dungeon.tiles.count {
+                    #expect(dungeon.tiles[leftIdx].kind == .solid, "Left border should be solid at \(room.x), \(y)")
+                }
+                if rightIdx >= 0 && rightIdx < dungeon.tiles.count {
+                    #expect(dungeon.tiles[rightIdx].kind == .solid, "Right border should be solid at \(room.x + room.w - 1), \(y)")
+                }
+            }
+            
+            // Check that interior is floor
+            for x in (room.x + 1)..<(room.x + room.w - 1) {
+                for y in (room.y + 1)..<(room.y + room.h - 1) {
+                    let idx = x + y * config.width
+                    if idx >= 0 && idx < dungeon.tiles.count {
+                        #expect(dungeon.tiles[idx].kind == .floor, "Interior should be floor at \(x), \(y)")
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Tests solid room border functionality for BSP dungeon generation.
+    ///
+    /// Verifies that BSP generator also properly creates solid borders
+    /// that corridors cannot overwrite.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testBSPSolidRoomBorders() async throws {
+        // Test BSP configuration with borders enabled
+        var config = DungeonConfig()
+        config.width = 20
+        config.height = 20
+        config.bspMaxDepth = 3
+        config.roomMinSize = 4
+        config.roomMaxSize = 6
+        config.roomBorders = true
+        config.algorithm = .bsp
         
-        // For a controlled test, manually create a room and verify border behavior
-        let testRoom = Rect(x: 2, y: 2, w: 6, h: 6)
-        var tilesWithBorders = Array(repeating: Tile(kind: .wall), count: 20 * 15)
-        var tilesWithoutBorders = Array(repeating: Tile(kind: .wall), count: 20 * 15)
+        // Generate BSP dungeon with solid borders
+        let generator = BSPGenerator()
+        var rng = SystemRandomNumberGenerator()
+        let dungeon = generator.generate(config: config, rng: &rng)
         
-        // Configure a room generator instance to test carveRoom method
-        let roomGen = RoomsGenerator()
-        let mirror = Mirror(reflecting: roomGen)
+        // Verify that the dungeon has rooms
+        #expect(dungeon.rooms.count > 0)
         
-        // We need to test the behavior indirectly since carveRoom is private
-        // Instead, test the overall generation results
-        
-        // With borders enabled, interior floor area should be smaller
-        var configBordered = DungeonConfig()
-        configBordered.width = 10
-        configBordered.height = 10
-        configBordered.maxRooms = 1
-        configBordered.roomMinSize = 6
-        configBordered.roomMaxSize = 6
-        configBordered.roomBorders = true
-        
-        var configNormal = configBordered
-        configNormal.roomBorders = false
-        
-        let borderedDungeon = generator.generate(config: configBordered, rng: &rng)
-        let normalDungeon = generator.generate(config: configNormal, rng: &rng)
-        
-        // Count floor tiles - bordered rooms should have fewer floor tiles than normal rooms
-        let borderedFloorCount = borderedDungeon.tiles.count { $0.kind == .floor }
-        let normalFloorCount = normalDungeon.tiles.count { $0.kind == .floor }
-        
-        // Bordered rooms should have fewer floor tiles due to the border walls
-        #expect(borderedFloorCount <= normalFloorCount)
+        // Check that each room has solid borders
+        for room in dungeon.rooms {
+            // Check that borders exist as solid tiles
+            var solidBorderFound = false
+            
+            // Check top and bottom borders
+            for x in room.x..<(room.x + room.w) {
+                let topIdx = x + room.y * config.width
+                let bottomIdx = x + (room.y + room.h - 1) * config.width
+                
+                if topIdx >= 0 && topIdx < dungeon.tiles.count && dungeon.tiles[topIdx].kind == .solid {
+                    solidBorderFound = true
+                }
+                if bottomIdx >= 0 && bottomIdx < dungeon.tiles.count && dungeon.tiles[bottomIdx].kind == .solid {
+                    solidBorderFound = true
+                }
+            }
+            
+            // Check left and right borders
+            for y in room.y..<(room.y + room.h) {
+                let leftIdx = room.x + y * config.width
+                let rightIdx = (room.x + room.w - 1) + y * config.width
+                
+                if leftIdx >= 0 && leftIdx < dungeon.tiles.count && dungeon.tiles[leftIdx].kind == .solid {
+                    solidBorderFound = true
+                }
+                if rightIdx >= 0 && rightIdx < dungeon.tiles.count && dungeon.tiles[rightIdx].kind == .solid {
+                    solidBorderFound = true
+                }
+            }
+            
+            // At least some solid borders should exist for rooms with borders enabled
+            #expect(solidBorderFound, "Room should have solid borders when roomBorders is enabled")
+        }
     }
 
 }

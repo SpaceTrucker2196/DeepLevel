@@ -184,6 +184,7 @@ final class GameScene: SKScene {
                     let clamped = max(0, min(maxIndex, tile.variant))
                     group = tileRefs.floorVariants[clamped]
                 case .wall: group = tileRefs.wall
+                case .solid: group = tileRefs.solid
                 case .doorClosed: group = tileRefs.door
                 case .doorSecret: group = tileRefs.secretDoor
                 }
@@ -217,6 +218,7 @@ final class GameScene: SKScene {
             let clamped = max(0, min(maxIndex, tile.variant))
             group = tileRefs.floorVariants[clamped]
         case .wall: group = tileRefs.wall
+        case .solid: group = tileRefs.solid
         case .doorClosed: group = tileRefs.door
         case .doorSecret: group = tileRefs.secretDoor
         }
@@ -370,7 +372,7 @@ final class GameScene: SKScene {
                                         start: (monster.gridX, monster.gridY),
                                         goal: (player.gridX, player.gridY)) { kind in
                 switch kind {
-                case .wall, .doorClosed, .doorSecret: return false
+                case .wall, .solid, .doorClosed, .doorSecret: return false
                 case .floor: return true
                 }
             }

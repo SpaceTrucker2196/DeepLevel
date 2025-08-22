@@ -21,6 +21,9 @@ final class TileSetBuilder {
         /// Tile group for wall rendering.
         let wall: SKTileGroup
         
+        /// Tile group for solid rendering (non-carvable walls).
+        let solid: SKTileGroup
+        
         /// Tile group for closed door rendering.
         let door: SKTileGroup
         
@@ -41,6 +44,7 @@ final class TileSetBuilder {
         // Generate or fetch textures
         let floorTextures = (0..<3).map { variantColor(index: $0).dl_texture(square: tileSize) }
         let wallTexture   = SKColor(white: 0.10, alpha: 1).dl_texture(square: tileSize)
+        let solidTexture  = SKColor(white: 0.05, alpha: 1).dl_texture(square: tileSize)  // Darker than wall
         let doorTexture   = SKColor.brown.dl_texture(square: tileSize)
         let secretTexture = SKColor.purple.dl_texture(square: tileSize)
         
@@ -59,16 +63,18 @@ final class TileSetBuilder {
         
         let floorGroups = floorTextures.enumerated().map { makeGroup(named: "floor_\($0.offset)", texture: $0.element) }
         let wallGroup   = makeGroup(named: "wall", texture: wallTexture)
+        let solidGroup  = makeGroup(named: "solid", texture: solidTexture)
         let doorGroup   = makeGroup(named: "doorClosed", texture: doorTexture)
         let secretGroup = makeGroup(named: "doorSecret", texture: secretTexture)
         
-        let groups = floorGroups + [wallGroup, doorGroup, secretGroup]
+        let groups = floorGroups + [wallGroup, solidGroup, doorGroup, secretGroup]
         
         // Basic initializer (broadest compatibility)
         let tileSet = SKTileSet(tileGroups: groups)
         
         let refs = TileRefs(floorVariants: floorGroups,
                             wall: wallGroup,
+                            solid: solidGroup,
                             door: doorGroup,
                             secretDoor: secretGroup)
         return (tileSet, refs)
