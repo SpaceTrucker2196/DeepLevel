@@ -18,6 +18,12 @@ enum TileKind: UInt8 {
     
     /// Represents a secret door that appears as a wall but can be discovered.
     case doorSecret
+    
+    /// Represents a sidewalk tile that allows movement and sight, borders city streets.
+    case sidewalk
+    
+    /// Represents a driveway that blocks movement and sight but can be opened (renamed from door for city theme).
+    case driveway
 }
 
 /// Represents a single tile in the dungeon map with its properties and state.
@@ -45,8 +51,8 @@ struct Tile {
     var blocksMovement: Bool {
         switch kind {
         case .wall: return true
-        case .doorClosed, .doorSecret: return true
-        case .floor: return false
+        case .doorClosed, .doorSecret, .driveway: return true
+        case .floor, .sidewalk: return false
         }
     }
     
@@ -56,17 +62,17 @@ struct Tile {
     var blocksSight: Bool {
         switch kind {
         case .wall: return true
-        case .doorClosed, .doorSecret: return true
-        case .floor: return false
+        case .doorClosed, .doorSecret, .driveway: return true
+        case .floor, .sidewalk: return false
         }
     }
     
     /// Indicates whether this tile is a door type.
     ///
-    /// - Returns: `true` if the tile is either a closed door or secret door.
+    /// - Returns: `true` if the tile is either a closed door, secret door, or driveway.
     var isDoor: Bool {
         switch kind {
-        case .doorClosed, .doorSecret: return true
+        case .doorClosed, .doorSecret, .driveway: return true
         default: return false
         }
     }

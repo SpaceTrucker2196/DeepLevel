@@ -77,12 +77,12 @@ final class RoomsGenerator: DungeonGenerating {
     ///   - tiles: The tile array to examine
     ///   - w: Map width for bounds checking
     ///   - h: Map height for bounds checking
-    /// - Returns: `true` if the coordinate contains a floor tile
+    /// - Returns: `true` if the coordinate contains a floor tile or sidewalk
     /// - Complexity: O(1)
     private func floorAt(_ x: Int, _ y: Int, _ tiles: [Tile], _ w: Int, _ h: Int) -> Bool {
         guard inBounds(x,y,w,h) else { return false }
         let k = tiles[x + y*w].kind
-        return k == .floor
+        return k == .floor || k == .sidewalk
     }
     
     /// Checks if the specified coordinate contains a wall or is out of bounds.
@@ -129,7 +129,8 @@ final class RoomsGenerator: DungeonGenerating {
         return dirs.reduce(0) { acc, d in
             let nx = x + d.0, ny = y + d.1
             guard inBounds(nx,ny,width,height) else { return acc }
-            return acc + (tiles[nx + ny*width].kind == .floor ? 1 : 0)
+            let kind = tiles[nx + ny*width].kind
+            return acc + ((kind == .floor || kind == .sidewalk) ? 1 : 0)
         }
     }
     
@@ -182,21 +183,55 @@ final class RoomsGenerator: DungeonGenerating {
     
     /// Carves a horizontal corridor between two x coordinates.
     ///
+    /// For city layout, creates wide streets with sidewalk borders.
+    /// For traditional layout, creates single-tile corridors.
+    ///
     /// - Parameters:
     ///   - x1: Starting x coordinate
     ///   - x2: Ending x coordinate
     ///   - y: Y coordinate of the corridor
     ///   - tiles: The tile array to modify
     ///   - width: Map width for coordinate calculation
-    /// - Complexity: O(|x2-x1|)
-    private func carveHorizontalCorridor(from x1: Int, to x2: Int, at y: Int, into tiles: inout [Tile], width: Int) {
+    ///   - config: Configuration to determine corridor style
+    /// - Complexity: O(|x2-x1| * corridor_width)
+    private func carveHorizontalCorridor(from x1: Int, to x2: Int, at y: Int, into tiles: inout [Tile], width: Int, config: DungeonConfig) {
         let a = min(x1,x2), b = max(x1,x2)
-        for x in a...b {
-            tiles[x + y*width].kind = .floor
+        
+        if config.cityLayout {
+            // Create wide street with sidewalk borders
+            let streetWidth = config.streetWidth
+            let totalWidth = streetWidth + 2 // street + sidewalks on both sides
+            let startY = y - totalWidth / 2
+            
+            for x in a...b {
+                for dy in 0..<totalWidth {
+                    let currentY = startY + dy
+                    if currentY >= 0 && currentY < tiles.count / width {
+                        let idx = x + currentY * width
+                        if idx >= 0 && idx < tiles.count {
+                            if dy == 0 || dy == totalWidth - 1 {
+                                // Sidewalk borders
+                                tiles[idx].kind = .sidewalk
+                            } else {
+                                // Street interior
+                                tiles[idx].kind = .floor
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Traditional single-tile corridor
+            for x in a...b {
+                tiles[x + y*width].kind = .floor
+            }
         }
     }
     
     /// Carves a vertical corridor between two y coordinates.
+    ///
+    /// For city layout, creates wide streets with sidewalk borders.
+    /// For traditional layout, creates single-tile corridors.
     ///
     /// - Parameters:
     ///   - y1: Starting y coordinate
@@ -204,11 +239,39 @@ final class RoomsGenerator: DungeonGenerating {
     ///   - x: X coordinate of the corridor
     ///   - tiles: The tile array to modify
     ///   - width: Map width for coordinate calculation
-    /// - Complexity: O(|y2-y1|)
-    private func carveVerticalCorridor(from y1: Int, to y2: Int, at x: Int, into tiles: inout [Tile], width: Int) {
+    ///   - config: Configuration to determine corridor style
+    /// - Complexity: O(|y2-y1| * corridor_width)
+    private func carveVerticalCorridor(from y1: Int, to y2: Int, at x: Int, into tiles: inout [Tile], width: Int, config: DungeonConfig) {
         let a = min(y1,y2), b = max(y1,y2)
-        for y in a...b {
-            tiles[x + y*width].kind = .floor
+        
+        if config.cityLayout {
+            // Create wide street with sidewalk borders
+            let streetWidth = config.streetWidth
+            let totalWidth = streetWidth + 2 // street + sidewalks on both sides
+            let startX = x - totalWidth / 2
+            
+            for y in a...b {
+                for dx in 0..<totalWidth {
+                    let currentX = startX + dx
+                    if currentX >= 0 && currentX < width {
+                        let idx = currentX + y * width
+                        if idx >= 0 && idx < tiles.count {
+                            if dx == 0 || dx == totalWidth - 1 {
+                                // Sidewalk borders
+                                tiles[idx].kind = .sidewalk
+                            } else {
+                                // Street interior
+                                tiles[idx].kind = .floor
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Traditional single-tile corridor
+            for y in a...b {
+                tiles[x + y*width].kind = .floor
+            }
         }
     }
     
@@ -216,6 +279,7 @@ final class RoomsGenerator: DungeonGenerating {
     ///
     /// Places non-overlapping rectangular rooms and connects them with
     /// L-shaped corridors to create the primary dungeon structure.
+    /// For city layout, creates a grid of 6x6 blocks with wide streets.
     ///
     /// - Parameters:
     ///   - config: Generation configuration
@@ -224,6 +288,71 @@ final class RoomsGenerator: DungeonGenerating {
     ///   - rooms: Room array to populate
     /// - Complexity: O(maxRooms * room area)
     private func generateRoomsAndCorridors(config: DungeonConfig, rng: inout RandomNumberGenerator, tiles: inout [Tile], rooms: inout [Rect]) {
+        if config.cityLayout {
+            // Generate city blocks in a grid layout
+            generateCityGrid(config: config, rng: &rng, tiles: &tiles, rooms: &rooms)
+        } else {
+            // Traditional room generation
+            generateTraditionalRooms(config: config, rng: &rng, tiles: &tiles, rooms: &rooms)
+        }
+    }
+    
+    /// Generates city blocks in a regular grid with streets between them.
+    ///
+    /// - Parameters:
+    ///   - config: Generation configuration
+    ///   - rng: Random number generator
+    ///   - tiles: Tile array to modify
+    ///   - rooms: Room array to populate
+    private func generateCityGrid(config: DungeonConfig, rng: inout RandomNumberGenerator, tiles: inout [Tile], rooms: inout [Rect]) {
+        let blockSize = config.cityBlockSize
+        let streetWidth = config.streetWidth + 2 // include sidewalks
+        let gridSpacing = blockSize + streetWidth
+        
+        // Calculate how many blocks fit in each dimension
+        let blocksX = (config.width - streetWidth) / gridSpacing
+        let blocksY = (config.height - streetWidth) / gridSpacing
+        
+        // Generate city blocks
+        for gridX in 0..<blocksX {
+            for gridY in 0..<blocksY {
+                let x = gridX * gridSpacing + streetWidth / 2
+                let y = gridY * gridSpacing + streetWidth / 2
+                let cityBlock = Rect(x: x, y: y, w: blockSize, h: blockSize)
+                
+                // Ensure the block fits within bounds
+                if x + blockSize < config.width && y + blockSize < config.height {
+                    carveRoom(cityBlock, into: &tiles, width: config.width, config: config)
+                    rooms.append(cityBlock)
+                }
+            }
+        }
+        
+        // Generate horizontal streets
+        for gridY in 0...blocksY {
+            let streetY = gridY * gridSpacing - streetWidth / 2
+            if streetY >= 0 && streetY + streetWidth < config.height {
+                carveHorizontalCorridor(from: 0, to: config.width - 1, at: streetY + streetWidth / 2, into: &tiles, width: config.width, config: config)
+            }
+        }
+        
+        // Generate vertical streets
+        for gridX in 0...blocksX {
+            let streetX = gridX * gridSpacing - streetWidth / 2
+            if streetX >= 0 && streetX + streetWidth < config.width {
+                carveVerticalCorridor(from: 0, to: config.height - 1, at: streetX + streetWidth / 2, into: &tiles, width: config.width, config: config)
+            }
+        }
+    }
+    
+    /// Generates rooms using traditional random placement algorithm.
+    ///
+    /// - Parameters:
+    ///   - config: Generation configuration
+    ///   - rng: Random number generator
+    ///   - tiles: Tile array to modify
+    ///   - rooms: Room array to populate
+    private func generateTraditionalRooms(config: DungeonConfig, rng: inout RandomNumberGenerator, tiles: inout [Tile], rooms: inout [Rect]) {
         for _ in 0..<config.maxRooms {
             let w = Int.random(in: config.roomMinSize...config.roomMaxSize, using: &rng)
             let h = Int.random(in: config.roomMinSize...config.roomMaxSize, using: &rng)
@@ -236,11 +365,11 @@ final class RoomsGenerator: DungeonGenerating {
                 let (px, py) = prev.center
                 let (cx, cy) = room.center
                 if Bool.random(using: &rng) {
-                    carveHorizontalCorridor(from: px, to: cx, at: py, into: &tiles, width: config.width)
-                    carveVerticalCorridor(from: py, to: cy, at: cx, into: &tiles, width: config.width)
+                    carveHorizontalCorridor(from: px, to: cx, at: py, into: &tiles, width: config.width, config: config)
+                    carveVerticalCorridor(from: py, to: cy, at: cx, into: &tiles, width: config.width, config: config)
                 } else {
-                    carveVerticalCorridor(from: py, to: cy, at: px, into: &tiles, width: config.width)
-                    carveHorizontalCorridor(from: px, to: cx, at: cy, into: &tiles, width: config.width)
+                    carveVerticalCorridor(from: py, to: cy, at: px, into: &tiles, width: config.width, config: config)
+                    carveHorizontalCorridor(from: px, to: cx, at: cy, into: &tiles, width: config.width, config: config)
                 }
             }
             rooms.append(room)
@@ -250,7 +379,8 @@ final class RoomsGenerator: DungeonGenerating {
     /// Places doors at appropriate room boundary locations.
     ///
     /// Analyzes room perimeters to identify suitable door placement
-    /// locations where corridors connect to rooms.
+    /// locations where corridors connect to rooms. For city layout,
+    /// places driveways connecting city blocks to streets.
     ///
     /// - Parameters:
     ///   - rooms: Array of rooms to process
@@ -264,7 +394,8 @@ final class RoomsGenerator: DungeonGenerating {
                 for yEdge in [room.y - 1, room.y + room.h] {
                     if yEdge < 0 || yEdge >= config.height { continue }
                     if isPotentialDoor(x: x, y: yEdge, tiles: tiles, width: config.width, height: config.height) {
-                        tiles[x + yEdge*config.width].kind = .doorClosed
+                        let doorType: TileKind = config.cityLayout ? .driveway : .doorClosed
+                        tiles[x + yEdge*config.width].kind = doorType
                     }
                 }
             }
@@ -272,7 +403,8 @@ final class RoomsGenerator: DungeonGenerating {
                 for xEdge in [room.x - 1, room.x + room.w] {
                     if xEdge < 0 || xEdge >= config.width { continue }
                     if isPotentialDoor(x: xEdge, y: y, tiles: tiles, width: config.width, height: config.height) {
-                        tiles[xEdge + y*config.width].kind = .doorClosed
+                        let doorType: TileKind = config.cityLayout ? .driveway : .doorClosed
+                        tiles[xEdge + y*config.width].kind = doorType
                     }
                 }
             }

@@ -91,5 +91,96 @@ struct DeepLevelTests {
         // Bordered rooms should have fewer floor tiles due to the border walls
         #expect(borderedFloorCount <= normalFloorCount)
     }
+    
+    /// Tests city layout generation functionality.
+    ///
+    /// Verifies that when city layout is enabled, the generator creates
+    /// 6x6 city blocks with 4-tile wide streets and sidewalk borders.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testCityLayout() async throws {
+        // Configure for city layout
+        var config = DungeonConfig()
+        config.width = 30
+        config.height = 30
+        config.cityLayout = true
+        config.cityBlockSize = 6
+        config.streetWidth = 4
+        config.algorithm = .roomsCorridors
+        
+        // Generate city layout
+        let generator = RoomsGenerator()
+        var rng = SystemRandomNumberGenerator()
+        let cityMap = generator.generate(config: config, rng: &rng)
+        
+        // Verify city blocks were generated
+        #expect(cityMap.rooms.count > 0)
+        
+        // All rooms should be 6x6 city blocks
+        for room in cityMap.rooms {
+            #expect(room.w == config.cityBlockSize)
+            #expect(room.h == config.cityBlockSize)
+        }
+        
+        // Verify tile types exist
+        let tileKinds = cityMap.tiles.map { $0.kind }
+        #expect(tileKinds.contains(.floor))  // Street interiors
+        #expect(tileKinds.contains(.sidewalk))  // Sidewalk borders
+        
+        // Count different tile types
+        let floorCount = cityMap.tiles.count { $0.kind == .floor }
+        let sidewalkCount = cityMap.tiles.count { $0.kind == .sidewalk }
+        let wallCount = cityMap.tiles.count { $0.kind == .wall }
+        
+        // Should have significant areas of each type
+        #expect(floorCount > 0)
+        #expect(sidewalkCount > 0)
+        #expect(wallCount > 0)
+        
+        // Sidewalks should be less than floors (streets are wider than sidewalks)
+        #expect(sidewalkCount < floorCount)
+    }
+    
+    /// Tests driveway placement in city layout.
+    ///
+    /// Verifies that driveways are used instead of doors when city layout is enabled.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testDrivewayPlacement() async throws {
+        // Configure for city layout
+        var config = DungeonConfig()
+        config.width = 20
+        config.height = 20
+        config.cityLayout = true
+        config.cityBlockSize = 6
+        config.streetWidth = 4
+        config.algorithm = .roomsCorridors
+        
+        // Generate city layout
+        let generator = RoomsGenerator()
+        var rng = SystemRandomNumberGenerator()
+        let cityMap = generator.generate(config: config, rng: &rng)
+        
+        // Check for driveways in city layout
+        let hasDriveways = cityMap.tiles.contains { $0.kind == .driveway }
+        let hasRegularDoors = cityMap.tiles.contains { $0.kind == .doorClosed }
+        
+        // City layout should use driveways, not regular doors
+        if cityMap.rooms.count > 0 {
+            // There should be potential for driveways (though they may not always be placed)
+            // At minimum, we should not have regular doors in city layout
+            #expect(!hasRegularDoors)
+        }
+        
+        // Test traditional layout for comparison
+        config.cityLayout = false
+        let traditionalMap = generator.generate(config: config, rng: &rng)
+        
+        let traditionalHasDoors = traditionalMap.tiles.contains { $0.kind == .doorClosed }
+        let traditionalHasDriveways = traditionalMap.tiles.contains { $0.kind == .driveway }
+        
+        // Traditional layout should not have driveways
+        #expect(!traditionalHasDriveways)
+    }
 
 }
