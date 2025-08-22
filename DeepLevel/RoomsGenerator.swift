@@ -40,7 +40,7 @@ final class RoomsGenerator: DungeonGenerating {
             start = (config.width / 2, config.height / 2)
         }
         
-        var map = DungeonMap(width: config.width, height: config.height, tiles: tiles.map { Tile(kind: $0.kind) }, playerStart: start, rooms: rooms)
+        let map = DungeonMap(width: config.width, height: config.height, tiles: tiles.map { Tile(kind: $0.kind) }, playerStart: start, rooms: rooms)
         return map
     }
     

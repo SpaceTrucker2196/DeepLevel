@@ -59,7 +59,7 @@ final class GameScene: SKScene {
     private var monsterPathInterval: TimeInterval = 1.0
     
     // Sizing
-    private let tileSize: CGFloat = 24
+    private let tileSize: CGFloat = 72
     
     // Debug
     private let debugLogging = false
@@ -230,8 +230,7 @@ final class GameScene: SKScene {
         let start = map.playerStart
         let p = Entity(kind: .player,
                        gridX: start.0,
-                       gridY: start.1,
-                       textureName: "Foxy", // Use Foxy sprite
+                       gridY: start.1, 
                        color: .clear,
                        size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
         addChild(p)
@@ -252,7 +251,7 @@ final class GameScene: SKScene {
                 let y = Int.random(in: 0..<map.height)
                 let t = map.tiles[map.index(x: x, y: y)]
                 if t.kind == .floor && (x,y) != (player.gridX, player.gridY) {
-                    let m = Monster(gridX: x, gridY: y, tileSize: tileSize, textureName: "Ursa") // Use Ursa sprite
+                    let m = Monster(gridX: x, gridY: y, tileSize: tileSize) // Use Ursa sprite
                     addChild(m)
                     m.moveTo(gridX: x, gridY: y, tileSize: tileSize, animated: false)
                     monsters.append(m)

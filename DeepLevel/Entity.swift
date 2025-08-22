@@ -1,11 +1,13 @@
 import SpriteKit
 
-enum EntityKind {
-    case player
-    case monster
-    case item
+/// Enum representing different entity types in the game, with raw values for texture names.
+enum EntityKind: String {
+    case player = "Foxy"
+    case monster = "Ursa"
+    case item // Add more kinds as needed, with rawValue as the asset name if you use them
 }
 
+/// Base class for all grid-based entities (player, monster, item) in the dungeon.
 class Entity: SKSpriteNode {
     let id = UUID()
     let kind: EntityKind
@@ -14,13 +16,21 @@ class Entity: SKSpriteNode {
     var blocksMovement: Bool = true
     var hp: Int = 1
 
-    /// Extended initializer to allow a texture name
-    init(kind: EntityKind, gridX: Int, gridY: Int, textureName: String? = nil, color: SKColor, size: CGSize) {
+    /// Create an entity of a specific kind at a grid location, with color and size.
+    /// Loads texture based on EntityKind's rawValue (asset name).
+    /// Provides error handling if texture is missing.
+    init(kind: EntityKind, gridX: Int, gridY: Int, color: SKColor, size: CGSize) {
         self.kind = kind
         self.gridX = gridX
         self.gridY = gridY
-        let texture = textureName != nil ? SKTexture(imageNamed: textureName!) : nil
-        super.init(texture: texture, color: color, size: size)
+        let texture = SKTexture(imageNamed: kind.rawValue)
+        // Error handling: SpriteKit returns a 1x1 transparent texture if asset is missing.
+        if texture.size() == CGSize(width: 1, height: 1) {
+            print("⚠️ [Entity] Texture '\(kind.rawValue)' not found in asset catalog. Using fallback color.")
+            super.init(texture: nil, color: color, size: size)
+        } else {
+            super.init(texture: texture, color: color, size: size)
+        }
         self.position = .zero
         self.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         self.zPosition = 50
@@ -28,6 +38,7 @@ class Entity: SKSpriteNode {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Move to a grid position, animating if desired.
     func moveTo(gridX: Int, gridY: Int, tileSize: CGFloat, animated: Bool = true) {
         self.gridX = gridX
         self.gridY = gridY
@@ -41,14 +52,18 @@ class Entity: SKSpriteNode {
     }
 }
 
+/// Monster entity, always uses the "Ursa" texture.
 final class Monster: Entity {
     var lastPath: [(Int,Int)] = []
     var pathIndex: Int = 0
     var pathNeedsUpdate: Bool = true
 
-    /// Pass the texture name for Ursa
-    init(gridX: Int, gridY: Int, tileSize: CGFloat, textureName: String? = "Ursa") {
-        super.init(kind: .monster, gridX: gridX, gridY: gridY, textureName: textureName, color: .systemGreen, size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
+    init(gridX: Int, gridY: Int, tileSize: CGFloat) {
+        super.init(kind: .monster,
+                   gridX: gridX,
+                   gridY: gridY,
+                   color: .systemGreen,
+                   size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
         hp = 3
     }
     required init?(coder: NSCoder) { fatalError() }
