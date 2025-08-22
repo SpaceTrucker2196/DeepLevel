@@ -4,7 +4,7 @@ Understand the different algorithms available for creating varied dungeon layout
 
 ## Overview
 
-DeepLevel offers three distinct algorithms for dungeon generation, each producing unique characteristics and gameplay experiences. Understanding these algorithms helps you choose the right approach for your game's needs.
+DeepLevel offers four distinct algorithms for dungeon generation, each producing unique characteristics and gameplay experiences. Understanding these algorithms helps you choose the right approach for your game's needs.
 
 ## Room-and-Corridor Algorithm
 
@@ -106,22 +106,74 @@ config.cellularFillProb = 0.45  // Initial wall density
 config.cellularSteps = 5        // Smoothing iterations
 ```
 
+## City Map Algorithm
+
+Generates complex urban environments with detailed neighborhoods, districts, and city infrastructure.
+
+### Characteristics
+- **Structure**: 10x10 city blocks arranged in a regular grid
+- **Streets**: 2-tile wide streets with varied sidewalk borders
+- **Districts**: Multiple neighborhood types with distinct visual themes
+- **Lighting**: Advanced shadow and light effects including red light districts
+- **Infrastructure**: Trees, fire hydrants, and retail areas with special symbols
+
+### District Types
+- **Parks**: Green areas with hiding spots for concealment
+- **Residential**: 4 different residential neighborhood types with unique colors
+- **Urban**: 3 different urban district types with varying appearances
+- **Red Light**: Special districts that cast red light on adjacent tiles
+- **Retail**: Commercial areas with $ symbol tiles
+
+### Best For
+- Urban exploration games
+- Complex tactical gameplay requiring hiding and stealth
+- Games with district-based mechanics or themes
+- Scenarios requiring varied environmental types
+
+### Configuration
+```swift
+var config = DungeonConfig()
+config.algorithm = .cityMap
+config.cityMapBlockSize = 10
+config.cityMapStreetWidth = 2
+
+// Configure district frequencies (0.0 to 1.0)
+config.parkFrequency = 0.15
+config.residentialFrequency = 0.35
+config.urbanFrequency = 0.25
+config.redLightFrequency = 0.1
+config.retailFrequency = 0.15
+```
+
+### Advanced Features
+- **Sidewalk Variants**: Normal sidewalks, sidewalks with trees, and sidewalks with fire hydrants
+- **Color Casting**: Tiles support color cast values for lighting effects
+- **Shadow System**: City blocks cast shadows on adjacent streets and sidewalks
+- **Red Light Effects**: Red light districts illuminate surrounding tiles with red light
+- **Hiding Areas**: Parks contain hiding spots that provide concealment from monsters
+
+### Performance
+- **Complexity**: O(width × height + district_effects)
+- **Memory**: Moderate due to additional tile properties and lighting calculations
+
 ## Algorithm Comparison
 
-| Feature | Room-Corridor | Room-Corridor (City) | BSP | Cellular |
-|---------|---------------|---------------------|-----|----------|
-| Room Definition | Explicit rectangular rooms | 6x6 city blocks | Varied organic rooms | Open cave areas |
-| Connectivity | Corridor network | Grid street system | Hierarchical tree | Single large space |
-| Predictability | High | Very High | Medium | Low |
-| Navigation | Grid-friendly | City grid navigation | Moderate complexity | Freeform |
-| Doors | Automatic placement | Driveways to streets | Possible | Not applicable |
-| Street Layout | Single-tile corridors | 4-tile wide streets with sidewalks | Variable corridors | N/A |
+| Feature | Room-Corridor | Room-Corridor (City) | BSP | Cellular | City Map |
+|---------|---------------|---------------------|-----|----------|----------|
+| Room Definition | Explicit rectangular rooms | 6x6 city blocks | Varied organic rooms | Open cave areas | 10x10 urban districts |
+| Connectivity | Corridor network | Grid street system | Hierarchical tree | Single large space | Urban street grid |
+| Predictability | High | Very High | Medium | Low | Very High |
+| Navigation | Grid-friendly | City grid navigation | Moderate complexity | Freeform | Urban navigation |
+| Doors | Automatic placement | Driveways to streets | Possible | Not applicable | Street access |
+| Special Features | Simple rooms | Basic city layout | Organic layouts | Cave systems | Districts, lighting |
+| Complexity | Low | Low | Medium | Medium | High |
 
 ## Performance Considerations
 
 - **Room-Corridor**: O(width × height + maxRooms²)
 - **BSP**: O(width × height + 2^maxDepth)
 - **Cellular**: O(width × height × cellularSteps)
+- **City Map**: O(width × height + district_effects)
 
 ## Combining Algorithms
 
