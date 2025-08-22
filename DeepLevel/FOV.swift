@@ -174,4 +174,56 @@ struct FOV {
         default: return (ox,oy)
         }
     }
+    
+    /// Checks if there is a clear line of sight between two positions.
+    ///
+    /// Uses a simple ray-casting algorithm to determine if one entity can see another,
+    /// taking into account hiding areas that provide concealment.
+    ///
+    /// - Parameters:
+    ///   - map: The dungeon map to check
+    ///   - fromX: X coordinate of the viewing position
+    ///   - fromY: Y coordinate of the viewing position  
+    ///   - toX: X coordinate of the target position
+    ///   - toY: Y coordinate of the target position
+    /// - Returns: `true` if there is clear line of sight between positions
+    /// - Complexity: O(distance between points)
+    static func hasLineOfSight(map: DungeonMap, fromX: Int, fromY: Int, toX: Int, toY: Int) -> Bool {
+        // If target is in a hiding area, they cannot be seen
+        if map.inBounds(toX, toY) {
+            let targetTile = map.tiles[map.index(x: toX, y: toY)]
+            if targetTile.providesConcealment {
+                return false
+            }
+        }
+        
+        // Use Bresenham's line algorithm to check line of sight
+        let dx = abs(toX - fromX)
+        let dy = abs(toY - fromY)
+        let sx = fromX < toX ? 1 : -1
+        let sy = fromY < toY ? 1 : -1
+        var err = dx - dy
+        
+        var x = fromX
+        var y = fromY
+        
+        while x != toX || y != toY {
+            let e2 = 2 * err
+            if e2 > -dy {
+                err -= dy
+                x += sx
+            }
+            if e2 < dx {
+                err += dx
+                y += sy
+            }
+            
+            // Check if this position blocks sight
+            if blocksSight(map, x: x, y: y) {
+                return false
+            }
+        }
+        
+        return true
+    }
 }

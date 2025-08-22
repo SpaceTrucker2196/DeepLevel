@@ -223,6 +223,7 @@ final class GameScene: SKScene {
         case .doorSecret: group = tileRefs.secretDoor
         case .sidewalk: group = tileRefs.sidewalk
         case .driveway: group = tileRefs.driveway
+        case .hidingArea: group = tileRefs.hidingArea
         }
         tileMap.setTileGroup(group, forColumn: x, row: y)
     }
@@ -370,24 +371,121 @@ final class GameScene: SKScene {
         guard let map = map,
               let player = player else { return }
         for monster in monsters {
-            let path = Pathfinder.aStar(map: map,
-                                        start: (monster.gridX, monster.gridY),
-                                        goal: (player.gridX, player.gridY)) { kind in
-                switch kind {
-                case .wall, .doorClosed, .doorSecret, .driveway: return false
-                case .floor, .sidewalk: return true
-                }
+            // Check if monster can see player
+            let canSeePlayer = FOV.hasLineOfSight(map: map,
+                                                 fromX: monster.gridX,
+                                                 fromY: monster.gridY,
+                                                 toX: player.gridX,
+                                                 toY: player.gridY)
+            
+            // Update player's visibility status
+            if canSeePlayer {
+                player.currentlySeen = true
             }
-            if path.count > 1 {
-                let next = path[1]
-                if next.0 == player.gridX && next.1 == player.gridY {
-                    player.hp -= 1
-                    updateHUD()
+            
+            if canSeePlayer {
+                // Monster can see player - pursue them
+                monster.lastPlayerPosition = (player.gridX, player.gridY)
+                monster.roamTarget = nil // Clear any roam target
+                
+                let path = Pathfinder.aStar(map: map,
+                                            start: (monster.gridX, monster.gridY),
+                                            goal: (player.gridX, player.gridY)) { kind in
+                    switch kind {
+                    case .wall, .doorClosed, .doorSecret, .driveway: return false
+                    case .floor, .sidewalk, .hidingArea: return true
+                    }
+                }
+                if path.count > 1 {
+                    let next = path[1]
+                    if next.0 == player.gridX && next.1 == player.gridY {
+                        player.hp -= 1
+                        updateHUD()
+                    } else {
+                        monster.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                    }
+                }
+            } else {
+                // Monster cannot see player - roam randomly or move to last known position
+                if let lastPos = monster.lastPlayerPosition {
+                    // Try to move toward last known position
+                    let path = Pathfinder.aStar(map: map,
+                                                start: (monster.gridX, monster.gridY),
+                                                goal: lastPos) { kind in
+                        switch kind {
+                        case .wall, .doorClosed, .doorSecret, .driveway: return false
+                        case .floor, .sidewalk, .hidingArea: return true
+                        }
+                    }
+                    if path.count > 1 {
+                        let next = path[1]
+                        monster.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                        
+                        // If reached last known position, clear it and start roaming
+                        if next.0 == lastPos.0 && next.1 == lastPos.1 {
+                            monster.lastPlayerPosition = nil
+                        }
+                    } else {
+                        // Can't reach last known position, start roaming
+                        monster.lastPlayerPosition = nil
+                    }
                 } else {
-                    monster.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+                    // Roam randomly
+                    roamMonster(monster: monster, map: map)
                 }
             }
         }
+        
+        // Reset player's seen status if no monsters can see them
+        let anyMonsterCanSeePlayer = monsters.contains { monster in
+            FOV.hasLineOfSight(map: map,
+                              fromX: monster.gridX,
+                              fromY: monster.gridY,
+                              toX: player.gridX,
+                              toY: player.gridY)
+        }
+        player.currentlySeen = anyMonsterCanSeePlayer
+    }
+    
+    private func roamMonster(monster: Monster, map: DungeonMap) {
+        // If no roam target or reached current target, pick a new one
+        if monster.roamTarget == nil || 
+           (monster.roamTarget!.0 == monster.gridX && monster.roamTarget!.1 == monster.gridY) {
+            monster.roamTarget = findRandomRoamTarget(map: map)
+        }
+        
+        guard let target = monster.roamTarget else { return }
+        
+        // Move toward roam target
+        let path = Pathfinder.aStar(map: map,
+                                    start: (monster.gridX, monster.gridY),
+                                    goal: target) { kind in
+            switch kind {
+            case .wall, .doorClosed, .doorSecret, .driveway: return false
+            case .floor, .sidewalk, .hidingArea: return true
+            }
+        }
+        
+        if path.count > 1 {
+            let next = path[1]
+            monster.moveTo(gridX: next.0, gridY: next.1, tileSize: tileSize)
+        } else {
+            // Can't reach target, pick a new one
+            monster.roamTarget = findRandomRoamTarget(map: map)
+        }
+    }
+    
+    private func findRandomRoamTarget(map: DungeonMap) -> (Int, Int)? {
+        // Try to find a random walkable tile
+        for _ in 0..<20 { // Try up to 20 times
+            let x = Int.random(in: 0..<map.width)
+            let y = Int.random(in: 0..<map.height)
+            let tile = map.tiles[map.index(x: x, y: y)]
+            if !tile.blocksMovement {
+                return (x, y)
+            }
+        }
+        return nil
     }
     
     // MARK: - FOV

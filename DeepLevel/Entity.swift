@@ -15,6 +15,7 @@ class Entity: SKSpriteNode {
     var gridY: Int
     var blocksMovement: Bool = true
     var hp: Int = 1
+    var currentlySeen: Bool = false
 
     /// Create an entity of a specific kind at a grid location, with color and size.
     /// Loads texture based on EntityKind's rawValue (asset name).
@@ -57,6 +58,8 @@ final class Monster: Entity {
     var lastPath: [(Int,Int)] = []
     var pathIndex: Int = 0
     var pathNeedsUpdate: Bool = true
+    var roamTarget: (Int, Int)? = nil
+    var lastPlayerPosition: (Int, Int)? = nil
 
     init(gridX: Int, gridY: Int, tileSize: CGFloat) {
         super.init(kind: .monster,

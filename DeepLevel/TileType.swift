@@ -24,6 +24,9 @@ enum TileKind: UInt8 {
     
     /// Represents a driveway that blocks movement and sight but can be opened (renamed from door for city theme).
     case driveway
+    
+    /// Represents a hiding area that allows movement but provides concealment from monsters.
+    case hidingArea
 }
 
 /// Represents a single tile in the dungeon map with its properties and state.
@@ -52,7 +55,7 @@ struct Tile {
         switch kind {
         case .wall: return true
         case .doorClosed, .doorSecret, .driveway: return true
-        case .floor, .sidewalk: return false
+        case .floor, .sidewalk, .hidingArea: return false
         }
     }
     
@@ -63,7 +66,17 @@ struct Tile {
         switch kind {
         case .wall: return true
         case .doorClosed, .doorSecret, .driveway: return true
-        case .floor, .sidewalk: return false
+        case .floor, .sidewalk, .hidingArea: return false
+        }
+    }
+    
+    /// Indicates whether this tile provides concealment from monsters.
+    ///
+    /// - Returns: `true` if the tile hides entities from monster line of sight.
+    var providesConcealment: Bool {
+        switch kind {
+        case .hidingArea: return true
+        default: return false
         }
     }
     
