@@ -330,17 +330,17 @@ final class RoomsGenerator: DungeonGenerating {
         
         // Generate horizontal streets
         for gridY in 0...blocksY {
-            let streetY = gridY * gridSpacing - streetWidth / 2
-            if streetY >= 0 && streetY + streetWidth < config.height {
-                carveHorizontalCorridor(from: 0, to: config.width - 1, at: streetY + streetWidth / 2, into: &tiles, width: config.width, config: config)
+            let streetCenterY = gridY * gridSpacing
+            if streetCenterY >= 0 && streetCenterY < config.height {
+                carveHorizontalCorridor(from: 0, to: config.width - 1, at: streetCenterY, into: &tiles, width: config.width, config: config)
             }
         }
         
         // Generate vertical streets
         for gridX in 0...blocksX {
-            let streetX = gridX * gridSpacing - streetWidth / 2
-            if streetX >= 0 && streetX + streetWidth < config.width {
-                carveVerticalCorridor(from: 0, to: config.height - 1, at: streetX + streetWidth / 2, into: &tiles, width: config.width, config: config)
+            let streetCenterX = gridX * gridSpacing
+            if streetCenterX >= 0 && streetCenterX < config.width {
+                carveVerticalCorridor(from: 0, to: config.height - 1, at: streetCenterX, into: &tiles, width: config.width, config: config)
             }
         }
     }
