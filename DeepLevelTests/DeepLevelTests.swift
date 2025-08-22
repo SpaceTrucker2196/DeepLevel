@@ -38,6 +38,72 @@ struct DeepLevelTests {
         #expect(algorithms.count == 4)
     }
     
+    /// Tests end-to-end algorithm selection and tile generation.
+    ///
+    /// Verifies that when different algorithms are selected, they produce
+    /// the correct tile types and that TileSetBuilder can render them all.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testEndToEndAlgorithmSelection() async throws {
+        // Test that each algorithm in the GameScene array works correctly
+        let scene = GameScene()
+        let algorithms = scene.getAvailableAlgorithms()
+        
+        for (index, algorithm) in algorithms.enumerated() {
+            var config = DungeonConfig()
+            config.width = 40
+            config.height = 40
+            config.algorithm = algorithm
+            
+            // Adjust cityLayout for rooms algorithm
+            if algorithm == .roomsCorridors {
+                config.cityLayout = false
+            }
+            
+            let generator = DungeonGenerator(config: config)
+            let map = generator.generate()
+            
+            // Verify basic map properties
+            #expect(map.width == config.width)
+            #expect(map.height == config.height)
+            #expect(map.tiles.count == config.width * config.height)
+            
+            // Verify algorithm-specific tiles are generated
+            let tileKinds = Set(map.tiles.map { $0.kind })
+            
+            switch algorithm {
+            case .roomsCorridors:
+                if config.cityLayout {
+                    // City layout rooms should have sidewalks and driveways
+                    #expect(tileKinds.contains(.sidewalk) || tileKinds.contains(.driveway))
+                } else {
+                    // Regular rooms should have walls and floors
+                    #expect(tileKinds.contains(.wall))
+                    #expect(tileKinds.contains(.floor))
+                }
+            case .bsp:
+                // BSP should produce walls and floors
+                #expect(tileKinds.contains(.wall))
+                #expect(tileKinds.contains(.floor))
+            case .cellular:
+                // Cellular should produce walls and floors
+                #expect(tileKinds.contains(.wall))
+                #expect(tileKinds.contains(.floor))
+            case .cityMap:
+                // City map should have city-specific tiles
+                #expect(tileKinds.contains(.street))
+                #expect(tileKinds.contains(.sidewalk))
+                let cityTypes: [TileKind] = [.park, .residential1, .urban1, .retail]
+                let hasCityType = cityTypes.contains { tileKinds.contains($0) }
+                #expect(hasCityType, "City map should contain district tiles")
+            }
+            
+            // Verify TileSetBuilder can handle all tile types generated
+            let (tileSet, tileRefs) = TileSetBuilder.build(tileSize: 32)
+            #expect(tileSet.tileGroups.count >= tileKinds.count)
+        }
+    }
+    
     /// Tests that the default configuration can be properly applied.
     ///
     /// Verifies that the default algorithm setting in DungeonConfig is respected
