@@ -208,6 +208,8 @@ final class GameScene: SKScene {
                 case .sidewalkTree: group = tileRefs.sidewalkTree
                 case .sidewalkHydrant: group = tileRefs.sidewalkHydrant
                 case .street: group = tileRefs.street
+                @unknown default:
+                    fatalError("Unhandled TileKind: \(tile.kind)")
                 }
                 tileMap.setTileGroup(group, forColumn: x, row: y)
             }
@@ -257,6 +259,8 @@ final class GameScene: SKScene {
         case .sidewalkTree: group = tileRefs.sidewalkTree
         case .sidewalkHydrant: group = tileRefs.sidewalkHydrant
         case .street: group = tileRefs.street
+        @unknown default:
+            fatalError("Unhandled TileKind: \(tile.kind)")
         }
         tileMap.setTileGroup(group, forColumn: x, row: y)
     }
@@ -268,7 +272,7 @@ final class GameScene: SKScene {
         let start = map.playerStart
         let p = Entity(kind: .player,
                        gridX: start.0,
-                       gridY: start.1, 
+                       gridY: start.1,
                        color: .clear,
                        size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
         addChild(p)
@@ -522,6 +526,33 @@ final class GameScene: SKScene {
                     switch kind {
                     case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
                     case .floor, .sidewalk: return true
+                    case .park:
+                        return true
+                    case .residential1:
+                        return false
+                    case .residential2:
+                        return false
+                    case .residential4:
+                        return false
+                    case .residential3:
+                        return false
+                    case .urban1:
+                        return false
+                    case .urban2:
+                        return false
+                    case .urban3:
+                        return false
+                    case .redLight:
+                        return false
+                    case .retail:
+                        return false
+                    case .sidewalkTree:
+                        return true
+                    case .sidewalkHydrant:
+                        return true
+                    case .street:
+                        return true
+                    @unknown default: return false
                     }
                 }
                 if path.count > 1 {
@@ -543,6 +574,7 @@ final class GameScene: SKScene {
                         switch kind {
                         case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
                         case .floor, .sidewalk: return true
+                        @unknown default: return false
                         }
                     }
                     if path.count > 1 {
@@ -577,7 +609,7 @@ final class GameScene: SKScene {
     
     private func roamMonster(monster: Monster, map: DungeonMap) {
         // If no roam target or reached current target, pick a new one
-        if monster.roamTarget == nil || 
+        if monster.roamTarget == nil ||
            (monster.roamTarget!.0 == monster.gridX && monster.roamTarget!.1 == monster.gridY) {
             monster.roamTarget = findRandomRoamTarget(map: map)
         }
@@ -591,6 +623,7 @@ final class GameScene: SKScene {
             switch kind {
             case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
             case .floor, .sidewalk: return true
+            @unknown default: return false
             }
         }
         
@@ -659,6 +692,7 @@ final class GameScene: SKScene {
             switch kind {
             case .wall, .doorClosed, .doorSecret, .driveway: return false
             case .floor, .sidewalk, .hidingArea: return true
+            @unknown default: return false
             }
         }
         
@@ -683,7 +717,7 @@ final class GameScene: SKScene {
         }
         
         // If no roam target or reached current target, pick a new one
-        if charmed.roamTarget == nil || 
+        if charmed.roamTarget == nil ||
            (charmed.roamTarget!.0 == charmed.gridX && charmed.roamTarget!.1 == charmed.gridY) {
             charmed.roamTarget = findRandomRoamTarget(map: map)
         }
@@ -697,6 +731,7 @@ final class GameScene: SKScene {
             switch kind {
             case .wall, .doorClosed, .doorSecret, .driveway: return false
             case .floor, .sidewalk, .hidingArea: return true
+            @unknown default: return false
             }
         }
         

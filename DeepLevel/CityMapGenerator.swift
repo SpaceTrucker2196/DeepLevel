@@ -78,8 +78,8 @@ final class CityMapGenerator: DungeonGenerating {
             width: width,
             height: height,
             tiles: tiles,
-            rooms: rooms,
-            playerStart: playerStart
+            playerStart: playerStart,
+            rooms: rooms
         )
     }
     

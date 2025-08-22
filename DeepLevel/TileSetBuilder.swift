@@ -162,7 +162,7 @@ final class TileSetBuilder {
         let image = renderer.image { ctx in
             // Base sidewalk color
             SKColor.lightGray.setFill()
-            ctx.fill(rect)
+            ctx.cgContext.fill(rect)
             
             // Draw tree symbol (simple circle)
             let treeSize = tileSize * 0.4
@@ -174,7 +174,7 @@ final class TileSetBuilder {
             )
             
             UIColor.systemGreen.setFill()
-            ctx.fillEllipse(in: treeRect)
+            ctx.cgContext.fillEllipse(in: treeRect)
         }
         return SKTexture(image: image)
         #else

@@ -47,7 +47,7 @@ struct DungeonConfig {
     var seed: UInt64? = nil
     
     /// The generation algorithm to use.
-    var algorithm: GenerationAlgorithm = .roomsCorridors
+    var algorithm: GenerationAlgorithm = .cityMap
     
     /// Initial fill probability for cellular automata algorithm (0.0 to 1.0).
     var cellularFillProb: Double = 0.45
