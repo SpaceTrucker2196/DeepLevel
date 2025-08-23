@@ -94,9 +94,9 @@ final class CityMapGenerator: DungeonGenerating {
     ///   - tiles: Tile array to modify
     ///   - rooms: Room array to populate
     private func generateCityGrid(config: DungeonConfig, rng: inout RandomNumberGenerator, tiles: inout [Tile], rooms: inout [Rect]) {
-        let blockSize = config.cityMapBlockSize
-        let streetWidth = config.cityMapStreetWidth + 2 // include sidewalks
-        let gridSpacing = blockSize + streetWidth
+        let baseBlockSize = config.cityMapBlockSize
+        let streetWidth = config.cityMapStreetWidth + 1 // include one sidewalk on top
+        let gridSpacing = baseBlockSize + streetWidth
         
         // Calculate how many blocks fit in each dimension
         let blocksX = (config.width - streetWidth) / gridSpacing
@@ -110,6 +110,11 @@ final class CityMapGenerator: DungeonGenerating {
             for gridY in 0..<blocksY {
                 let x = gridX * gridSpacing + streetWidth / 2
                 let y = gridY * gridSpacing + streetWidth / 2
+                
+                // Determine block size based on position (top half vs bottom half)
+                let isTopHalf = gridY < blocksY / 2
+                let blockSize = isTopHalf ? config.cityMapBlockSizeTop : config.cityMapBlockSizeBottom
+                
                 let cityBlock = Rect(x: x, y: y, w: blockSize, h: blockSize)
                 
                 // Ensure the block fits within bounds
@@ -166,16 +171,18 @@ final class CityMapGenerator: DungeonGenerating {
     }
     
     /// Generates streets and sidewalks between city blocks.
+    /// Sidewalks only appear on the bottom border of city blocks (top part of horizontal streets).
+    /// Vertical streets have no sidewalks.
     private func generateStreetsAndSidewalks(config: DungeonConfig, rng: inout RandomNumberGenerator, tiles: inout [Tile], width: Int, height: Int) {
         let blockSize = config.cityMapBlockSize
         let streetWidth = config.cityMapStreetWidth
-        let totalWidth = streetWidth + 2 // street + sidewalks
+        let totalWidth = streetWidth + 1 // street + one sidewalk on top only
         let gridSpacing = blockSize + totalWidth
         
         let blocksX = (width - totalWidth) / gridSpacing
         let blocksY = (height - totalWidth) / gridSpacing
         
-        // Generate horizontal streets
+        // Generate horizontal streets with sidewalk only on top (bottom border of city blocks)
         for gridY in 0...blocksY {
             let streetCenterY = gridY * gridSpacing
             let streetStartY = streetCenterY - totalWidth / 2
@@ -187,8 +194,8 @@ final class CityMapGenerator: DungeonGenerating {
                         
                         // Determine tile type based on position within street area
                         let offsetFromStart = y - streetStartY
-                        if offsetFromStart == 0 || offsetFromStart == totalWidth - 1 {
-                            // Sidewalk borders
+                        if offsetFromStart == 0 {
+                            // Sidewalk only on the top (bottom border of city blocks above)
                             tiles[idx].kind = chooseSidewalkType(rng: &rng)
                         } else {
                             // Street interior
@@ -199,30 +206,23 @@ final class CityMapGenerator: DungeonGenerating {
             }
         }
         
-        // Generate vertical streets
+        // Generate vertical streets with no sidewalks
         for gridX in 0...blocksX {
             let streetCenterX = gridX * gridSpacing
-            let streetStartX = streetCenterX - totalWidth / 2
+            let streetStartX = streetCenterX - streetWidth / 2
             
-            for x in streetStartX..<(streetStartX + totalWidth) {
+            for x in streetStartX..<(streetStartX + streetWidth) {
                 if x >= 0 && x < width {
                     for y in 0..<height {
                         let idx = y * width + x
                         
-                        // Skip if already processed as horizontal street
+                        // Skip if already processed as horizontal street or sidewalk
                         if tiles[idx].kind == .street || tiles[idx].kind.isSidewalk {
                             continue
                         }
                         
-                        // Determine tile type based on position within street area
-                        let offsetFromStart = x - streetStartX
-                        if offsetFromStart == 0 || offsetFromStart == totalWidth - 1 {
-                            // Sidewalk borders
-                            tiles[idx].kind = chooseSidewalkType(rng: &rng)
-                        } else {
-                            // Street interior
-                            tiles[idx].kind = .street
-                        }
+                        // Vertical streets have no sidewalks, only street tiles
+                        tiles[idx].kind = .street
                     }
                 }
             }

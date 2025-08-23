@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "HidingSpot.png",
+      "filename" : "Urban2.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "HidingSpot@2x.png",
+      "filename" : "Urban2@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "HidingSpot@3x.png",
+      "filename" : "Urban2@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

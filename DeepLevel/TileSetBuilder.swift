@@ -41,7 +41,7 @@ final class TileSetBuilder {
         let doorTexture      = SKColor.brown.dl_texture(square: tileSize)
         let secretTexture    = SKColor.purple.dl_texture(square: tileSize)
         let sidewalkTexture  = SKTexture(imageNamed: "Sidewalk")
-        let drivewayTexture  = SKColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1).dl_texture(square: tileSize)
+        let drivewayTexture  = SKTexture(imageNamed: "Street")
         let hidingTexture    = SKTexture(imageNamed: "HidingSpot")
         
         // City Map textures
@@ -54,12 +54,16 @@ final class TileSetBuilder {
         let urban2Tex        = SKTexture(imageNamed: "Urban2")
         let urban3Tex        = SKTexture(imageNamed: "Urban3")
         let redLightTex      = SKTexture(imageNamed: "RedLight")
-        let retailTex        = SKTexture(imageNamed: "Retail")
+        let retailTex        = SKTexture(imageNamed: "Urban4")
         let sidewalkTreeTex  = SKTexture(imageNamed: "SidewalkTree")
         let sidewalkHydrantTex = SKTexture(imageNamed: "SidewalkFireHydrant")
-        let streetTexture    = SKTexture(imageNamed: "Street")
+        let streetTexture    = SKTexture(imageNamed: "SidewalkTop")
         
         func makeGroup(named name: String, texture: SKTexture) -> SKTileGroup {
+            if texture.size().width == 0 || texture.size().height == 0 {
+                print("⚠️ Missing tile texture for: \(name)")
+            }
+            
             let def = SKTileDefinition(texture: texture, size: CGSize(width: tileSize, height: tileSize))
             let g = SKTileGroup(tileDefinition: def)
             g.name = name
