@@ -89,10 +89,10 @@ final class FogOfWar: SKNode {
                     fogTile.alpha = 0.0
                 } else if mapTile.explored {
                     // Explored but not visible - partial fog (dimmed)
-                    fogTile.alpha = 0.8
+                    fogTile.alpha = 0.1
                 } else {
                     // Never explored - full fog
-                    fogTile.alpha = 1.0
+                    fogTile.alpha = 0.5
                 }
             }
         }

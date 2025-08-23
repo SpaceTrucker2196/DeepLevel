@@ -85,7 +85,7 @@ struct DungeonConfig {
     var cityMapBlockSizeTop: Int = 4
     
     /// Size of city blocks at the bottom for city map algorithm (in tiles).
-    var cityMapBlockSizeBottom: Int = 4
+    var cityMapBlockSizeBottom: Int = 8
     
     /// Frequency of park districts (0.0 to 1.0).
     var parkFrequency: Double = 0.15
@@ -100,5 +100,5 @@ struct DungeonConfig {
     var redLightFrequency: Double = 0.5
     
     /// Frequency of retail districts (0.0 to 1.0).
-    var retailFrequency: Double = 0.15
+    var retailFrequency: Double = 0.35
 }
