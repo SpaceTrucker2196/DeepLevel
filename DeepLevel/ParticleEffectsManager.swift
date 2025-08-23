@@ -22,6 +22,9 @@ final class ParticleEffectsManager {
     /// Active police light effects keyed by entity ID  
     private var policeLights: [UUID: SKSpriteNode] = [:]
     
+    /// Active blue bloom effects keyed by entity ID
+    private var blueBloomEffects: [UUID: SKEffectNode] = [:]
+    
     /// Active movement trail effects keyed by entity ID
     private var movementTrails: [UUID: MovementTrail] = [:]
     
@@ -148,6 +151,53 @@ final class ParticleEffectsManager {
             light.removeFromParent()
         }
         policeLights.removeAll()
+    }
+    
+    // MARK: - Blue Bloom Effects
+    
+    /// Adds blue bloom effect to a monster when it can see the player (50% transparent)
+    func addBlueBloom(to monster: Entity) {
+        // Remove existing blue bloom if any
+        removeBlueBloom(from: monster)
+        
+        // Create blue bloom effect using SKEffectNode
+        let bloomNode = SKEffectNode()
+        bloomNode.shouldRasterize = true
+        
+        // Create blue background with 50% transparency
+        let bloomSprite = SKSpriteNode(color: .systemBlue, size: CGSize(width: tileSize * 1.2, height: tileSize * 1.2))
+        bloomSprite.alpha = 0.5  // 50% transparent as requested
+        bloomSprite.zPosition = -1 // Behind monster
+        
+        bloomNode.addChild(bloomSprite)
+        bloomNode.position = CGPoint.zero
+        
+        // Add pulsing animation for visual appeal
+        let pulseIn = SKAction.scale(to: 1.1, duration: 0.8)
+        let pulseOut = SKAction.scale(to: 1.0, duration: 0.8)
+        let pulse = SKAction.sequence([pulseIn, pulseOut])
+        let pulseForever = SKAction.repeatForever(pulse)
+        
+        bloomNode.run(pulseForever)
+        
+        monster.addChild(bloomNode)
+        blueBloomEffects[monster.id] = bloomNode
+    }
+    
+    /// Removes blue bloom effect from monster
+    func removeBlueBloom(from monster: Entity) {
+        if let bloom = blueBloomEffects[monster.id] {
+            bloom.removeFromParent()
+            blueBloomEffects.removeValue(forKey: monster.id)
+        }
+    }
+    
+    /// Removes all blue bloom effects (useful when clearing all effects)
+    func removeAllBlueBloomEffects() {
+        for (_, bloom) in blueBloomEffects {
+            bloom.removeFromParent()
+        }
+        blueBloomEffects.removeAll()
     }
     
     // MARK: - Player Healing Effects

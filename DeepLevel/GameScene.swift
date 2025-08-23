@@ -54,6 +54,7 @@ final class GameScene: SKScene {
     // Monster AI settings
     private let monsterSeekingRange: Int = 5  // Distance in tiles within which monsters seek the player
     private let playerSeekingTimeout: TimeInterval = 5.0  // Seconds to keep seeking after losing sight
+    private let monsterCooldownDuration: TimeInterval = 5.0  // Seconds to cooldown after player contact
     
     // Particle effects
     private var particleManager: ParticleEffectsManager?
@@ -515,18 +516,6 @@ final class GameScene: SKScene {
         }
         let nextPosition = plannedPath[currentPathIndex]
         
-        if shouldEvadeMonsters(playerPosition: nextPosition) {
-            if debugLogging { print("[GameScene] Monster within seeking range during path execution, seeking hiding spot") }
-            handleMonsterDetection()
-            return
-        }
-        
-        if checkForMonsterDetection() {
-            if debugLogging { print("[GameScene] Monster detected during path execution, seeking hiding spot") }
-            handleMonsterDetection()
-            return
-        }
-        
         let success = tryMovePlayerToPosition(nextPosition.0, nextPosition.1)
         if success {
             if currentPathIndex < footstepNodes.count {
@@ -549,76 +538,6 @@ final class GameScene: SKScene {
                 planAndExecutePath(to: targetPosition)
             }
         }
-    }
-    
-    private func checkForMonsterDetection() -> Bool {
-        guard let player = player,
-              let map = map,
-              plannedPath.count > 2 else { return false }
-        for monster in monsters {
-            let monsterCanSeePlayer = FOV.hasLineOfSight(map: map,
-                                                         fromX: monster.gridX,
-                                                         fromY: monster.gridY,
-                                                         toX: player.gridX,
-                                                         toY: player.gridY)
-            let playerCanSeeMonster = FOV.hasLineOfSight(map: map,
-                                                         fromX: player.gridX,
-                                                         fromY: player.gridY,
-                                                         toX: monster.gridX,
-                                                         toY: monster.gridY)
-            
-            // Check if monster is within seeking range
-            let dx = abs(monster.gridX - player.gridX)
-            let dy = abs(monster.gridY - player.gridY)
-            let distanceToMonster = dx + dy
-            let monsterWithinSeekingRange = distanceToMonster <= monsterSeekingRange
-            
-            if monsterCanSeePlayer && playerCanSeeMonster && monsterWithinSeekingRange {
-                return true
-            }
-        }
-        return false
-    }
-    
-    private func shouldEvadeMonsters(playerPosition: (Int, Int)) -> Bool {
-        for monster in monsters {
-            let dx = abs(monster.gridX - playerPosition.0)
-            let dy = abs(monster.gridY - playerPosition.1)
-            // Use seeking range for consistency with monster AI
-            if dx + dy <= monsterSeekingRange { return true }
-        }
-        return false
-    }
-    
-    private func handleMonsterDetection() {
-        if let hidingSpot = findNearestExploredHidingSpot() {
-            if debugLogging { print("[GameScene] Found hiding spot at (\(hidingSpot.0), \(hidingSpot.1))") }
-            clearPlannedPath()
-            planAndExecutePath(to: hidingSpot)
-        } else {
-            if debugLogging { print("[GameScene] No hiding spot found, stopping movement") }
-            clearPlannedPath()
-        }
-    }
-    
-    private func findNearestExploredHidingSpot() -> (Int, Int)? {
-        guard let player = player,
-              let map = map else { return nil }
-        var nearest: (Int, Int)?
-        var best = Int.max
-        for y in 0..<map.height {
-            for x in 0..<map.width {
-                let tile = map.tiles[map.index(x: x, y: y)]
-                if tile.explored && tile.providesConcealment {
-                    let dist = abs(x - player.gridX) + abs(y - player.gridY)
-                    if dist < best && dist > 0 {
-                        best = dist
-                        nearest = (x, y)
-                    }
-                }
-            }
-        }
-        return nearest
     }
     
     private func cleanupPathSystem() {
@@ -748,6 +667,16 @@ final class GameScene: SKScene {
               let player = player else { return }
         
         for monster in monsters {
+            let currentTime = CACurrentMediaTime()
+            
+            // Check if monster is in cooldown period
+            if currentTime < monster.cooldownUntil {
+                // Monster is in cooldown, just roam randomly
+                roamMonster(monster: monster, map: map)
+                particleManager?.removeBlueBloom(from: monster)
+                continue
+            }
+            
             let canSeePlayer = FOV.hasLineOfSight(map: map,
                                                   fromX: monster.gridX,
                                                   fromY: monster.gridY,
@@ -769,7 +698,7 @@ final class GameScene: SKScene {
             // Only seek player if they can see them AND player is within seeking range
             if canSeePlayer && playerWithinSeekingRange {
                 monster.lastPlayerPosition = (player.gridX, player.gridY)
-                monster.lastPlayerSightingTime = CACurrentMediaTime()  // Update sighting time
+                monster.lastPlayerSightingTime = currentTime  // Update sighting time
                 monster.roamTarget = nil  // Clear roam target when actively seeking
                 let path = Pathfinder.aStar(map: map,
                                             start: (monster.gridX, monster.gridY),
@@ -778,7 +707,11 @@ final class GameScene: SKScene {
                 if path.count > 1 {
                     let next = path[1]
                     if next.0 == player.gridX && next.1 == player.gridY {
+                        // Monster meets player - damage and enter cooldown
                         player.hp -= 1
+                        monster.cooldownUntil = currentTime + monsterCooldownDuration
+                        monster.lastPlayerPosition = nil  // Clear tracking
+                        monster.roamTarget = nil  // Reset roam target for new random movement
                         updateHUD()
                     } else {
                         moveEntityWithTrail(monster, to: next)
@@ -822,11 +755,11 @@ final class GameScene: SKScene {
                 }
             }
             
-            // Particle effects for detection
-            if canSeePlayer && playerWithinSeekingRange {
-                particleManager?.addPoliceLight(to: monster)
+            // Blue bloom effect when monster can see player (replace old police light)
+            if canSeePlayer && playerWithinSeekingRange && currentTime >= monster.cooldownUntil {
+                particleManager?.addBlueBloom(to: monster)
             } else {
-                particleManager?.removePoliceLight(from: monster)
+                particleManager?.removeBlueBloom(from: monster)
             }
         }
         
@@ -917,6 +850,29 @@ final class GameScene: SKScene {
     private func roamCharmed(charmed: Charmed, map: DungeonMap) {
         let currentTile = map.tiles[map.index(x: charmed.gridX, y: charmed.gridY)]
         if currentTile.kind == .hidingArea { return }
+        
+        // Check for nearest visible ice cream truck first (unless charmed by player)
+        if !charmed.isCharmed, let iceCreamTruck = findNearestVisibleIceCreamTruck(from: charmed, map: map) {
+            // Move towards ice cream truck
+            let path = Pathfinder.aStar(map: map,
+                                        start: (charmed.gridX, charmed.gridY),
+                                        goal: iceCreamTruck,
+                                        passable: createPassableFunction(for: charmed))
+            if path.count > 1 {
+                let next = path[1]
+                if let player = player, (next.0 == player.gridX && next.1 == player.gridY) {
+                    // skip if player is in the way
+                } else {
+                    let hasMonster = monsters.contains { $0.gridX == next.0 && $0.gridY == next.1 }
+                    if !hasMonster {
+                        moveEntityWithTrail(charmed, to: next)
+                    }
+                }
+            }
+            return
+        }
+        
+        // Default random roaming behavior
         if charmed.roamTarget == nil ||
             (charmed.roamTarget!.0 == charmed.gridX && charmed.roamTarget!.1 == charmed.gridY) {
             charmed.roamTarget = findRandomRoamTarget(map: map)
@@ -939,6 +895,34 @@ final class GameScene: SKScene {
         } else {
             charmed.roamTarget = findRandomRoamTarget(map: map)
         }
+    }
+    
+    private func findNearestVisibleIceCreamTruck(from charmed: Charmed, map: DungeonMap) -> (Int, Int)? {
+        var nearest: (Int, Int)? = nil
+        var bestDistance = Int.max
+        
+        for y in 0..<map.height {
+            for x in 0..<map.width {
+                let tile = map.tiles[map.index(x: x, y: y)]
+                if tile.kind == .iceCreamTruck && tile.visible {
+                    // Check if charmed entity has line of sight to ice cream truck
+                    let hasLOS = FOV.hasLineOfSight(map: map,
+                                                   fromX: charmed.gridX,
+                                                   fromY: charmed.gridY,
+                                                   toX: x,
+                                                   toY: y)
+                    if hasLOS {
+                        let distance = abs(x - charmed.gridX) + abs(y - charmed.gridY)
+                        if distance < bestDistance {
+                            bestDistance = distance
+                            nearest = (x, y)
+                        }
+                    }
+                }
+            }
+        }
+        
+        return nearest
     }
     
     private func updateEntityTransparency() {

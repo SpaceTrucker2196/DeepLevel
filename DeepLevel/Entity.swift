@@ -85,6 +85,7 @@ final class Monster: Entity {
     var roamTarget: (Int, Int)? = nil
     var lastPlayerPosition: (Int, Int)? = nil
     var lastPlayerSightingTime: TimeInterval = 0  // Track when player was last seen for timeout logic
+    var cooldownUntil: TimeInterval = 0  // Track cooldown period after player contact
 
     init(gridX: Int, gridY: Int, tileSize: CGFloat, scale: CGFloat = 1.0) {
         super.init(kind: .monster,
