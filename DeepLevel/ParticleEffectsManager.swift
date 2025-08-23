@@ -19,6 +19,9 @@ final class ParticleEffectsManager {
     /// Active charmed entity heart effects keyed by entity ID
     private var charmedEffects: [UUID: SKEmitterNode] = [:]
     
+    /// Active police light effects keyed by entity ID  
+    private var policeLights: [UUID: SKSpriteNode] = [:]
+    
     /// Active movement trail effects keyed by entity ID
     private var movementTrails: [UUID: MovementTrail] = [:]
     
@@ -105,6 +108,89 @@ final class ParticleEffectsManager {
             effect.removeFromParent()
             charmedEffects.removeValue(forKey: entity.id)
         }
+    }
+    
+    // MARK: - Police Light Effects
+    
+    /// Adds blinking blue police light to a monster when it can see the player
+    func addPoliceLight(to monster: Entity) {
+        // Remove existing police light if any
+        removePoliceLight(from: monster)
+        
+        // Create blue police light sprite
+        let policeLight = SKSpriteNode(color: .systemBlue, size: CGSize(width: tileSize * 0.3, height: tileSize * 0.3))
+        policeLight.position = CGPoint(x: 0, y: tileSize * 0.5) // Above monster
+        policeLight.zPosition = 110 // Above everything
+        
+        // Add blinking animation
+        let blinkOn = SKAction.fadeAlpha(to: 1.0, duration: 0.2)
+        let blinkOff = SKAction.fadeAlpha(to: 0.3, duration: 0.2)
+        let blinkSequence = SKAction.sequence([blinkOn, blinkOff])
+        let blinkForever = SKAction.repeatForever(blinkSequence)
+        
+        policeLight.run(blinkForever)
+        
+        monster.addChild(policeLight)
+        policeLights[monster.id] = policeLight
+    }
+    
+    /// Removes police light from monster
+    func removePoliceLight(from monster: Entity) {
+        if let light = policeLights[monster.id] {
+            light.removeFromParent()
+            policeLights.removeValue(forKey: monster.id)
+        }
+    }
+    
+    /// Removes all police lights (useful when clearing all effects)
+    func removeAllPoliceLights() {
+        for (_, light) in policeLights {
+            light.removeFromParent()
+        }
+        policeLights.removeAll()
+    }
+    
+    // MARK: - Player Healing Effects
+    
+    /// Adds pink glow effect to player when healed by charmed entity
+    func addPlayerHealingGlow(to player: Entity) {
+        // Create pink glow effect using SpriteKit's SKEffectNode with bloom
+        let glowNode = SKEffectNode()
+        glowNode.shouldRasterize = true
+        
+        // Create pink background
+        let glowSprite = SKSpriteNode(color: .systemPink, size: CGSize(width: tileSize * 1.5, height: tileSize * 1.5))
+        glowSprite.alpha = 0.3
+        glowSprite.zPosition = -1 // Behind player
+        
+        glowNode.addChild(glowSprite)
+        glowNode.position = CGPoint.zero
+        
+        // Add pulsing animation
+        let pulseIn = SKAction.scale(to: 1.2, duration: 0.5)
+        let pulseOut = SKAction.scale(to: 1.0, duration: 0.5)
+        let pulse = SKAction.sequence([pulseIn, pulseOut])
+        let pulseForever = SKAction.repeatForever(pulse)
+        
+        // Add fade in/out
+        let fadeIn = SKAction.fadeAlpha(to: 0.5, duration: 0.5)
+        let fadeOut = SKAction.fadeAlpha(to: 0.2, duration: 0.5)
+        let fade = SKAction.sequence([fadeIn, fadeOut])
+        let fadeForever = SKAction.repeatForever(fade)
+        
+        // Combine animations
+        let combined = SKAction.group([pulseForever, fadeForever])
+        glowSprite.run(combined)
+        
+        player.addChild(glowNode)
+        
+        // Remove after 10 seconds
+        let removeAction = SKAction.sequence([
+            SKAction.wait(forDuration: 10.0),
+            SKAction.fadeOut(withDuration: 1.0),
+            SKAction.removeFromParent()
+        ])
+        glowNode.run(removeAction)
     }
     
     // MARK: - Movement Trail Effects

@@ -28,6 +28,8 @@ final class TileSetBuilder {
         let sidewalkTree: SKTileGroup
         let sidewalkHydrant: SKTileGroup
         let street: SKTileGroup
+        let crosswalk: SKTileGroup
+        let iceCreamTruck: SKTileGroup
     }
     
     static func build(tileSize: CGFloat) -> (SKTileSet, TileRefs) {
@@ -58,6 +60,8 @@ final class TileSetBuilder {
         let sidewalkTreeTex  = SKTexture(imageNamed: "SidewalkTree")
         let sidewalkHydrantTex = SKTexture(imageNamed: "SidewalkFireHydrant")
         let streetTexture    = SKTexture(imageNamed: "SidewalkTop")
+        let crosswalkTexture = SKTexture(imageNamed: "Street")
+        let iceCreamTruckTexture = SKTexture(imageNamed: "IceCreamTruck")
         
         func makeGroup(named name: String, texture: SKTexture) -> SKTileGroup {
             if texture.size().width == 0 || texture.size().height == 0 {
@@ -92,12 +96,14 @@ final class TileSetBuilder {
         let sidewalkTreeGroup = makeGroup(named: "sidewalkTree", texture: sidewalkTreeTex)
         let sidewalkHydrantGroup = makeGroup(named: "sidewalkHydrant", texture: sidewalkHydrantTex)
         let streetGroup       = makeGroup(named: "street", texture: streetTexture)
+        let crosswalkGroup    = makeGroup(named: "crosswalk", texture: crosswalkTexture)
+        let iceCreamTruckGroup = makeGroup(named: "iceCreamTruck", texture: iceCreamTruckTexture)
         
         let groups = floorGroups + [
             wallGroup, doorGroup, secretGroup, sidewalkGroup, drivewayGroup, hidingGroup,
             parkGroup, residential1Group, residential2Group, residential3Group, residential4Group,
             urban1Group, urban2Group, urban3Group, redLightGroup, retailGroup,
-            sidewalkTreeGroup, sidewalkHydrantGroup, streetGroup
+            sidewalkTreeGroup, sidewalkHydrantGroup, streetGroup, crosswalkGroup, iceCreamTruckGroup
         ]
         let tileSet = SKTileSet(tileGroups: groups)
         
@@ -121,7 +127,9 @@ final class TileSetBuilder {
             retail: retailGroup,
             sidewalkTree: sidewalkTreeGroup,
             sidewalkHydrant: sidewalkHydrantGroup,
-            street: streetGroup
+            street: streetGroup,
+            crosswalk: crosswalkGroup,
+            iceCreamTruck: iceCreamTruckGroup
         )
         return (tileSet, refs)
     }

@@ -68,12 +68,18 @@ enum TileKind: UInt8 {
     
     /// Represents a street tile for 2-tile wide streets.
     case street
+    
+    /// Represents a crosswalk tile where streets intersect.
+    case crosswalk
+    
+    /// Represents an ice cream truck in parks.
+    case iceCreamTruck
 }
 
 /// Represents a single tile in the dungeon map with its properties and state.
 ///
 /// Contains all information needed to render and interact with a single tile position,
-/// including its type, visibility state, and visual variation.
+/// including its type, visibility state, visual variation, and scaling information.
 ///
 /// - Since: 1.0.0
 struct Tile {
@@ -92,6 +98,9 @@ struct Tile {
     /// Color cast for light/shadow effects (0.0 = no effect, negative = shadow, positive = light).
     var colorCast: Float = 0.0
     
+    /// Scale factor for the tile (1.0 = normal size, 2.0 = double size).
+    var scale: CGFloat = 1.0
+    
     /// Indicates whether this tile blocks entity movement.
     ///
     /// - Returns: `true` if the tile prevents entities from moving through it.
@@ -103,6 +112,7 @@ struct Tile {
         case .park, .residential1, .residential2, .residential3, .residential4: return false
         case .urban1, .urban2, .urban3, .redLight, .retail: return false
         case .sidewalkTree, .sidewalkHydrant, .street: return false
+        case .crosswalk, .iceCreamTruck: return false
         }
     }
     
@@ -117,6 +127,7 @@ struct Tile {
         case .park, .residential1, .residential2, .residential3, .residential4: return false
         case .urban1, .urban2, .urban3, .redLight, .retail: return false
         case .sidewalkTree, .sidewalkHydrant, .street: return false
+        case .crosswalk, .iceCreamTruck: return false
         }
     }
     

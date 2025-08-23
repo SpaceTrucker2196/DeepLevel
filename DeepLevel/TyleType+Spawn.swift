@@ -27,4 +27,14 @@ extension TileKind {
             return false
         }
     }
+    
+    /// Indicates whether this tile is a sidewalk type.
+    var isSidewalk: Bool {
+        switch self {
+        case .sidewalk, .sidewalkTree, .sidewalkHydrant:
+            return true
+        default:
+            return false
+        }
+    }
 }

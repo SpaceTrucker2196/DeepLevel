@@ -17,14 +17,34 @@ class Entity: SKSpriteNode {
     var blocksMovement: Bool = true
     var hp: Int = 1
     var currentlySeen: Bool = false
+    
+    /// Scale factor for the entity (1.0 = normal size, 2.0 = double size)
+    var scale: CGFloat = 1.0
+    
+    /// List of tile types that block movement for this entity
+    var blockingTiles: Set<TileKind> = []
 
     /// Create an entity of a specific kind at a grid location, with color and size.
     /// Loads texture based on EntityKind's rawValue (asset name).
     /// Provides error handling if texture is missing.
-    init(kind: EntityKind, gridX: Int, gridY: Int, color: SKColor, size: CGSize) {
+    init(kind: EntityKind, gridX: Int, gridY: Int, color: SKColor, size: CGSize, scale: CGFloat = 1.0) {
         self.kind = kind
         self.gridX = gridX
         self.gridY = gridY
+        self.scale = scale
+        
+        // Set default blocking tiles based on entity type
+        switch kind {
+        case .player:
+            blockingTiles = [.wall, .doorClosed, .doorSecret, .driveway]
+        case .monster:
+            blockingTiles = [.wall, .doorClosed, .doorSecret, .driveway]
+        case .charmed:
+            blockingTiles = [.wall, .doorClosed, .doorSecret, .driveway]
+        case .item:
+            blockingTiles = []
+        }
+        
         let texture = SKTexture(imageNamed: kind.rawValue)
         // Error handling: SpriteKit returns a 1x1 transparent texture if asset is missing.
         if texture.size() == CGSize(width: 1, height: 1) {
@@ -36,6 +56,9 @@ class Entity: SKSpriteNode {
         self.position = .zero
         self.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         self.zPosition = 50
+        
+        // Apply scaling to the visual representation
+        self.setScale(scale)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -47,7 +70,7 @@ class Entity: SKSpriteNode {
         let target = CGPoint(x: CGFloat(gridX)*tileSize + tileSize/2,
                              y: CGFloat(gridY)*tileSize + tileSize/2)
         if animated {
-            run(SKAction.move(to: target, duration: 0.12))
+            run(SKAction.move(to: target, duration: 0.3)) // Increased duration for smoother movement
         } else {
             position = target
         }
@@ -62,12 +85,13 @@ final class Monster: Entity {
     var roamTarget: (Int, Int)? = nil
     var lastPlayerPosition: (Int, Int)? = nil
 
-    init(gridX: Int, gridY: Int, tileSize: CGFloat) {
+    init(gridX: Int, gridY: Int, tileSize: CGFloat, scale: CGFloat = 1.0) {
         super.init(kind: .monster,
                    gridX: gridX,
                    gridY: gridY,
                    color: .systemGreen,
-                   size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
+                   size: CGSize(width: tileSize*0.8, height: tileSize*0.8),
+                   scale: scale)
         hp = 3
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -79,14 +103,78 @@ final class Charmed: Entity {
     var roamTarget: (Int, Int)? = nil
     var lastHealTime: TimeInterval = 0
     
-    init(gridX: Int, gridY: Int, tileSize: CGFloat) {
+    init(gridX: Int, gridY: Int, tileSize: CGFloat, scale: CGFloat = 1.0) {
         super.init(kind: .charmed,
                    gridX: gridX,
                    gridY: gridY,
                    color: .systemPurple,
-                   size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
+                   size: CGSize(width: tileSize*0.8, height: tileSize*0.8),
+                   scale: scale)
         hp = 1
         blocksMovement = false // Charmed entities don't block movement
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}
+
+/// Player entity controlled by user input.
+final class Player: Entity {
+    var inventory: [StoredItem] = []
+    private var lastHealTime: TimeInterval = 0
+    
+    init(gridX: Int, gridY: Int, tileSize: CGFloat, scale: CGFloat = 1.0) {
+        super.init(kind: .player,
+                   gridX: gridX,
+                   gridY: gridY,
+                   color: .systemBlue,
+                   size: CGSize(width: tileSize*0.8, height: tileSize*0.8),
+                   scale: scale)
+        hp = 10
+        
+        // Initialize with 3 random items
+        initializeStartingInventory(tileSize: tileSize)
+    }
+    
+    /// Heal the player and add visual effects
+    func heal(amount: Int = 1) {
+        hp = min(hp + amount, 10) // Cap at max HP of 10
+        lastHealTime = CACurrentMediaTime()
+    }
+    
+    /// Check if player was recently healed (for effect timing)
+    func wasRecentlyHealed() -> Bool {
+        return CACurrentMediaTime() - lastHealTime < 10.0 // 10 seconds
+    }
+    
+    private func initializeStartingInventory(tileSize: CGFloat) {
+        let startingItemDefs = ItemDatabase.randomItems(count: 3)
+        for itemDef in startingItemDefs {
+            let item = StoredItem(name: itemDef.name,
+                                  description: itemDef.description,
+                                  gridX: gridX, // Items start at player position conceptually
+                                  gridY: gridY,
+                                  tileSize: tileSize)
+            inventory.append(item)
+        }
+    }
+    
+    required init?(coder: NSCoder) { fatalError() }
+}
+
+/// Gameplay item entity renamed to StoredItem to avoid clash with Core Data Item.
+final class StoredItem: Entity { // formerly: Item
+    let title: String
+    let descript: String
+    
+    init(name: String, description: String, gridX: Int, gridY: Int, tileSize: CGFloat) {
+        self.title = name
+        self.descript = description
+        super.init(kind: .item,
+                   gridX: gridX,
+                   gridY: gridY,
+                   color: .systemYellow,
+                   size: CGSize(width: tileSize*0.5, height: tileSize*0.5))
+        hp = 1
+        blocksMovement = false
     }
     required init?(coder: NSCoder) { fatalError() }
 }
