@@ -63,6 +63,12 @@ final class GameScene: SKScene {
     // Movement (tap or queued)
     private var movementDir: (dx: Int, dy: Int) = (0,0)
     
+    // Path planning for tap-to-move
+    private var plannedPath: [(Int, Int)] = []
+    private var footstepNodes: [SKSpriteNode] = []
+    private var currentPathIndex: Int = 0
+    private var isExecutingPath: Bool = false
+    
     // Monster path timing
     private var lastMonsterPathUpdate: TimeInterval = 0
     private var monsterPathInterval: TimeInterval = 1.0
@@ -502,12 +508,136 @@ final class GameScene: SKScene {
     // MARK: - Movement / Combat
     /// Processes pending player movement commands.
     ///
-    /// Executes queued movement direction and resets the movement state
-    /// after processing. Called each frame to provide responsive controls.
+    /// Handles both path execution and legacy directional movement.
+    /// For path execution, moves one step at a time along the planned route.
+    /// Called each frame to provide responsive controls.
     private func updatePlayerMovement() {
+        // Handle path execution
+        if isExecutingPath && !plannedPath.isEmpty && currentPathIndex < plannedPath.count {
+            executeNextStepInPath()
+            return
+        }
+        
+        // Handle legacy directional movement
         guard movementDir.dx != 0 || movementDir.dy != 0 else { return }
         tryMovePlayer(dx: movementDir.dx, dy: movementDir.dy)
         movementDir = (0,0)
+    }
+    
+    /// Executes the next step in the planned path.
+    private func executeNextStepInPath() {
+        guard let player = player,
+              currentPathIndex < plannedPath.count else {
+            clearPlannedPath()
+            return
+        }
+        
+        let nextPosition = plannedPath[currentPathIndex]
+        
+        // Check for monsters that can see the player during movement
+        if checkForMonsterDetection() {
+            handleMonsterDetection()
+            return
+        }
+        
+        // Execute the movement
+        let success = tryMovePlayerToPosition(nextPosition.0, nextPosition.1)
+        
+        if success {
+            // Remove the footstep we just reached
+            if currentPathIndex < footstepNodes.count {
+                let footstep = footstepNodes[currentPathIndex]
+                footstep.removeFromParent()
+            }
+            
+            currentPathIndex += 1
+            
+            // Check if we've reached the end of the path
+            if currentPathIndex >= plannedPath.count {
+                clearPlannedPath()
+            }
+        } else {
+            // Movement failed (blocked), clear the path
+            clearPlannedPath()
+        }
+    }
+    
+    /// Checks if any monster can see the player and vice versa.
+    ///
+    /// - Returns: True if mutual line of sight exists between player and any monster
+    private func checkForMonsterDetection() -> Bool {
+        guard let player = player,
+              let map = map else { return false }
+        
+        for monster in monsters {
+            // Check if monster can see player
+            let monsterCanSeePlayer = FOV.hasLineOfSight(map: map,
+                                                        fromX: monster.gridX,
+                                                        fromY: monster.gridY,
+                                                        toX: player.gridX,
+                                                        toY: player.gridY)
+            
+            // Check if player can see monster
+            let playerCanSeeMonster = FOV.hasLineOfSight(map: map,
+                                                        fromX: player.gridX,
+                                                        fromY: player.gridY,
+                                                        toX: monster.gridX,
+                                                        toY: monster.gridY)
+            
+            // If both can see each other, we have mutual line of sight
+            if monsterCanSeePlayer && playerCanSeeMonster {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /// Handles monster detection by pathfinding to the nearest hiding spot.
+    private func handleMonsterDetection() {
+        guard let player = player,
+              let map = map else {
+            clearPlannedPath()
+            return
+        }
+        
+        // Find the nearest explored hiding spot
+        if let hidingSpot = findNearestExploredHidingSpot() {
+            // Clear current path and plan route to hiding spot
+            clearPlannedPath()
+            planAndExecutePath(to: hidingSpot)
+        } else {
+            // No hiding spot found, stop movement
+            clearPlannedPath()
+        }
+    }
+    
+    /// Finds the nearest explored hiding spot.
+    ///
+    /// - Returns: Grid coordinates of the nearest hiding spot, or nil if none found
+    private func findNearestExploredHidingSpot() -> (Int, Int)? {
+        guard let player = player,
+              let map = map else { return nil }
+        
+        var nearestHidingSpot: (Int, Int)? = nil
+        var shortestDistance = Int.max
+        
+        for y in 0..<map.height {
+            for x in 0..<map.width {
+                let tile = map.tiles[map.index(x: x, y: y)]
+                
+                // Check if this is an explored hiding spot
+                if tile.explored && tile.providesConcealment {
+                    let distance = abs(x - player.gridX) + abs(y - player.gridY)
+                    if distance < shortestDistance {
+                        shortestDistance = distance
+                        nearestHidingSpot = (x, y)
+                    }
+                }
+            }
+        }
+        
+        return nearestHidingSpot
     }
     
     /// Attempts to move the player in the specified direction.
@@ -520,11 +650,27 @@ final class GameScene: SKScene {
     ///   - dx: X direction offset (-1, 0, or 1)
     ///   - dy: Y direction offset (-1, 0, or 1)
     private func tryMovePlayer(dx: Int, dy: Int) {
-        guard var map = map,
-              let player = player else { return }
+        guard let player = player else { return }
         let nx = player.gridX + dx
         let ny = player.gridY + dy
-        guard map.inBounds(nx, ny) else { return }
+        _ = tryMovePlayerToPosition(nx, ny)
+    }
+    
+    /// Attempts to move the player to a specific grid position.
+    ///
+    /// Validates movement against map boundaries and tile collision,
+    /// handles door interactions, monster combat, and updates field
+    /// of view after successful movement.
+    ///
+    /// - Parameters:
+    ///   - nx: Target X grid coordinate
+    ///   - ny: Target Y grid coordinate
+    /// - Returns: True if movement was successful, false otherwise
+    private func tryMovePlayerToPosition(_ nx: Int, _ ny: Int) -> Bool {
+        guard var map = map,
+              let player = player else { return false }
+        
+        guard map.inBounds(nx, ny) else { return false }
         let idx = map.index(x: nx, y: ny)
         var tile = map.tiles[idx]
         
@@ -534,19 +680,19 @@ final class GameScene: SKScene {
             self.map = map
             refreshTile(x: nx, y: ny)
             recomputeFOV()
-            return
+            return false // Don't move this turn, just open the door
         }
-        guard !tile.blocksMovement else { return }
+        guard !tile.blocksMovement else { return false }
         
         if let monster = monsters.first(where: { $0.gridX == nx && $0.gridY == ny }) {
             attackMonster(monster)
-            return
+            return false // Don't move this turn, just attack
         }
         
         // Check for charmed entity collision
         if let charmed = charmedEntities.first(where: { $0.gridX == nx && $0.gridY == ny }) {
             charmEntity(charmed)
-            return
+            return false // Don't move this turn, just charm
         }
         
         // Capture old position for trail effect
@@ -558,10 +704,46 @@ final class GameScene: SKScene {
         // Trigger movement trail effect
         particleManager?.onEntityMove(player, from: oldPosition)
         
+        // Mark adjacent tiles as explored when moving
+        markAdjacentTilesAsExplored()
+        
         recomputeFOV()
         
         // Check for healing when charmed entities are nearby in hiding areas
         checkCharmedHealing()
+        
+        return true
+    }
+    
+    /// Marks all tiles adjacent to the player as explored.
+    ///
+    /// This implements the requirement that adjacent tiles to the player's
+    /// position are considered explored territory.
+    private func markAdjacentTilesAsExplored() {
+        guard var map = map,
+              let player = player else { return }
+        
+        // Check all 8 adjacent tiles (including diagonals)
+        let directions = [(-1, -1), (-1, 0), (-1, 1),
+                         (0, -1),           (0, 1),
+                         (1, -1),  (1, 0),  (1, 1)]
+        
+        for (dx, dy) in directions {
+            let adjX = player.gridX + dx
+            let adjY = player.gridY + dy
+            
+            if map.inBounds(adjX, adjY) {
+                let idx = map.index(x: adjX, y: adjY)
+                map.tiles[idx].explored = true
+            }
+        }
+        
+        self.map = map
+        
+        // Update fog of war to reflect new exploration
+        if let fogOfWar = fogOfWar {
+            fogOfWar.updateFog(for: map)
+        }
     }
     
     private func attackMonster(_ monster: Monster) {
@@ -957,9 +1139,9 @@ final class GameScene: SKScene {
     // MARK: - Touch Input (Tap to step toward tap)
     /// Handles touch input for player movement.
     ///
-    /// Converts touch screen coordinates to movement direction by determining
-    /// which cardinal direction from the player position the touch occurred.
-    /// Prioritizes the axis with greater displacement for intuitive movement.
+    /// Converts touch screen coordinates to grid coordinates and plans a path
+    /// from the player's current position to the target tile. Shows footsteps
+    /// along the planned route and executes movement step by step.
     ///
     /// - Parameters:
     ///   - touches: Set of touch objects representing the input
@@ -967,12 +1149,136 @@ final class GameScene: SKScene {
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let player = player,
               let touch = touches.first,
-              let view = self.view else { return }
+              let map = map else { return }
+        
         let location = touch.location(in: self)
-        let px = CGFloat(player.gridX)*tileSize + tileSize/2
-        let py = CGFloat(player.gridY)*tileSize + tileSize/2
-        let dx = location.x - px
-        let dy = location.y - py
+        
+        // Convert screen coordinates to grid coordinates
+        let gridX = Int((location.x - tileSize/2) / tileSize)
+        let gridY = Int((location.y - tileSize/2) / tileSize)
+        
+        // Validate target position
+        guard map.inBounds(gridX, gridY) else { return }
+        let targetTile = map.tiles[map.index(x: gridX, y: gridY)]
+        guard !targetTile.blocksMovement else { return }
+        
+        // Plan path from player to target
+        planAndExecutePath(to: (gridX, gridY))
+    }
+    
+    /// Converts screen coordinates to grid coordinates.
+    ///
+    /// - Parameter location: Screen coordinates relative to the scene
+    /// - Returns: Grid coordinates as (x, y) tuple
+    private func screenToGrid(_ location: CGPoint) -> (Int, Int) {
+        let gridX = Int((location.x - tileSize/2) / tileSize)
+        let gridY = Int((location.y - tileSize/2) / tileSize)
+        return (gridX, gridY)
+    }
+    
+    /// Plans a path to the target and sets up visual footsteps.
+    ///
+    /// Uses A* pathfinding to create a route from the player's current position
+    /// to the target, then creates visual footstep markers along the path.
+    ///
+    /// - Parameter target: Target grid coordinates as (x, y) tuple
+    private func planAndExecutePath(to target: (Int, Int)) {
+        guard let player = player,
+              let map = map else { return }
+        
+        // Clear any existing path
+        clearPlannedPath()
+        
+        // Find path using A* pathfinding
+        let path = Pathfinder.aStar(map: map,
+                                    start: (player.gridX, player.gridY),
+                                    goal: target) { kind in
+            switch kind {
+            case .wall, .doorClosed, .doorSecret, .driveway: return false
+            case .floor, .sidewalk, .hidingArea, .park, .street, 
+                 .sidewalkTree, .sidewalkHydrant, .redLight,
+                 .residential1, .residential2, .residential3, .residential4,
+                 .urban1, .urban2, .urban3, .retail: return true
+            @unknown default: return false
+            }
+        }
+        
+        // If no path found, fall back to old directional movement
+        if path.isEmpty || path.count == 1 {
+            fallbackToDirectionalMovement(target: target)
+            return
+        }
+        
+        // Store the path (excluding starting position)
+        plannedPath = Array(path.dropFirst())
+        currentPathIndex = 0
+        isExecutingPath = true
+        
+        // Create visual footsteps along the path
+        createFootstepNodes()
+    }
+    
+    /// Creates visual footstep nodes along the planned path.
+    private func createFootstepNodes() {
+        clearFootstepNodes()
+        
+        for (index, position) in plannedPath.enumerated() {
+            let footstep = createFootstepNode(at: position, index: index)
+            addChild(footstep)
+            footstepNodes.append(footstep)
+        }
+    }
+    
+    /// Creates a single footstep node at the specified position.
+    ///
+    /// - Parameters:
+    ///   - position: Grid coordinates for the footstep
+    ///   - index: Index in the path for z-position ordering
+    /// - Returns: Configured footstep sprite node
+    private func createFootstepNode(at position: (Int, Int), index: Int) -> SKSpriteNode {
+        let footstep = SKSpriteNode(color: .systemYellow, size: CGSize(width: tileSize * 0.3, height: tileSize * 0.3))
+        footstep.position = CGPoint(
+            x: CGFloat(position.0) * tileSize + tileSize/2,
+            y: CGFloat(position.1) * tileSize + tileSize/2
+        )
+        footstep.zPosition = 15 // Above tiles, below entities
+        footstep.alpha = 0.8
+        
+        // Add a subtle pulsing animation
+        let pulse = SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.4, duration: 0.5),
+            SKAction.fadeAlpha(to: 0.8, duration: 0.5)
+        ])
+        footstep.run(SKAction.repeatForever(pulse))
+        
+        return footstep
+    }
+    
+    /// Clears all planned path data and visual elements.
+    private func clearPlannedPath() {
+        plannedPath.removeAll()
+        clearFootstepNodes()
+        isExecutingPath = false
+        currentPathIndex = 0
+    }
+    
+    /// Removes all footstep nodes from the scene.
+    private func clearFootstepNodes() {
+        for footstep in footstepNodes {
+            footstep.removeFromParent()
+        }
+        footstepNodes.removeAll()
+    }
+    
+    /// Fallback to old directional movement when pathfinding fails.
+    ///
+    /// - Parameter target: Target grid coordinates
+    private func fallbackToDirectionalMovement(target: (Int, Int)) {
+        guard let player = player else { return }
+        
+        let dx = target.0 - player.gridX
+        let dy = target.1 - player.gridY
+        
         if abs(dx) > abs(dy) {
             movementDir = (dx > 0 ? 1 : -1, 0)
         } else {
