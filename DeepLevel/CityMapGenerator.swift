@@ -111,14 +111,21 @@ final class CityMapGenerator: DungeonGenerating {
                 let x = gridX * gridSpacing + streetWidth / 2
                 let y = gridY * gridSpacing + streetWidth / 2
                 
-                // Determine block size based on position (top half vs bottom half)
+                // Determine block size based on position and scaling
                 let isTopHalf = gridY < blocksY / 2
-                let blockSize = isTopHalf ? config.cityMapBlockSizeTop : config.cityMapBlockSizeBottom
+                var blockWidth = isTopHalf ? config.cityMapBlockSizeTop : config.cityMapBlockSizeBottom
+                var blockHeight = isTopHalf ? config.cityMapBlockSizeTop : config.cityMapBlockSizeBottom
                 
-                let cityBlock = Rect(x: x, y: y, w: blockSize, h: blockSize)
+                // Apply scaling if enabled - city blocks should be 2 tiles high and 4 tiles wide when double sized
+                if config.enableTileScaling {
+                    blockWidth = 4
+                    blockHeight = 2
+                }
+                
+                let cityBlock = Rect(x: x, y: y, w: blockWidth, h: blockHeight)
                 
                 // Ensure the block fits within bounds
-                if x + blockSize < config.width && y + blockSize < config.height {
+                if x + blockWidth < config.width && y + blockHeight < config.height {
                     let districtType = selectDistrictType(weights: districtWeights, rng: &rng)
                     carveDistrict(cityBlock, districtType: districtType, into: &tiles, width: config.width, config: config, rng: &rng)
                     rooms.append(cityBlock)
@@ -160,15 +167,21 @@ final class CityMapGenerator: DungeonGenerating {
             actualTileKind = urbanTypes.randomElement(using: &rng) ?? .urban1
         }
         
+        // Determine scaling based on config and district type
+        let shouldScale = config.enableTileScaling && shouldScaleDistrict(districtType)
+        let scaleFactor = shouldScale ? config.tileScaleFactor : 1.0
+        
         for y in block.y..<(block.y + block.h) {
             for x in block.x..<(block.x + block.w) {
                 if x >= 0 && x < width && y >= 0 && y < tiles.count / width {
                     let idx = y * width + x
                     tiles[idx].kind = actualTileKind
+                    tiles[idx].scale = scaleFactor
                     
                     // Add hiding spots to parks (50% chance per park block)
                     if districtType == .park && Double.random(in: 0..<1, using: &rng) < 0.5 {
                         tiles[idx].kind = .hidingArea
+                        tiles[idx].scale = 1.0 // Hiding spots are always single size
                     }
                 }
             }
@@ -183,7 +196,18 @@ final class CityMapGenerator: DungeonGenerating {
             if truckX >= 0 && truckX < width && truckY >= 0 && truckY < tiles.count / width {
                 let idx = truckY * width + truckX
                 tiles[idx].kind = .iceCreamTruck
+                tiles[idx].scale = 1.0 // Ice cream trucks are always single tile size
             }
+        }
+    }
+    
+    /// Determines if a district type should be scaled
+    private func shouldScaleDistrict(_ districtType: DistrictType) -> Bool {
+        switch districtType {
+        case .urban1, .urban2, .urban3, .residential1, .residential2, .residential3, .residential4, .redLight, .retail:
+            return true
+        case .park:
+            return false // Parks should always be single tile sized
         }
     }
     

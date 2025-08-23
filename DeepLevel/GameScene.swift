@@ -34,6 +34,7 @@ final class GameScene: SKScene {
     // Tile assets
     private var tileMap: SKTileMapNode?
     private var tileRefs: TileSetBuilder.TileRefs?
+    private var scaledTileNodes: [SKSpriteNode] = []
     
     // Entities
     private var player: Player?
@@ -274,12 +275,17 @@ final class GameScene: SKScene {
                 case .sidewalkTree: group = tileRefs.sidewalkTree
                 case .sidewalkHydrant: group = tileRefs.sidewalkHydrant
                 case .street: group = tileRefs.street
+                case .crosswalk: group = tileRefs.crosswalk
+                case .iceCreamTruck: group = tileRefs.iceCreamTruck
                 @unknown default:
                     fatalError("Unhandled TileKind: \(tile.kind)")
                 }
                 tileMap.setTileGroup(group, forColumn: x, row: y)
             }
         }
+        
+        // Render scaled tiles as separate sprite nodes
+        renderScaledTiles()
         
         // Setup enhanced fog of war system
         fogNode?.removeFromParent()
@@ -337,6 +343,8 @@ final class GameScene: SKScene {
         case .sidewalkTree: group = tileRefs.sidewalkTree
         case .sidewalkHydrant: group = tileRefs.sidewalkHydrant
         case .street: group = tileRefs.street
+        case .crosswalk: group = tileRefs.crosswalk
+        case .iceCreamTruck: group = tileRefs.iceCreamTruck
         @unknown default:
             fatalError("Unhandled TileKind: \(tile.kind)")
         }
@@ -371,6 +379,75 @@ final class GameScene: SKScene {
         return { tileKind in
             return !entity.blockingTiles.contains(tileKind)
         }
+    }
+    
+    /// Renders scaled tiles as separate sprite nodes on top of the tile map
+    private func renderScaledTiles() {
+        guard let map = map,
+              let tileRefs = tileRefs else { return }
+        
+        // Clear existing scaled tile nodes
+        scaledTileNodes.forEach { $0.removeFromParent() }
+        scaledTileNodes.removeAll()
+        
+        // Find and render scaled tiles
+        for y in 0..<map.height {
+            for x in 0..<map.width {
+                let tile = map.tiles[map.index(x: x, y: y)]
+                
+                // Only render tiles that are scaled
+                guard tile.scale > 1.0 else { continue }
+                
+                // Get the appropriate texture for this tile
+                let texture = getTextureForTile(tile: tile, tileRefs: tileRefs)
+                
+                // Create scaled sprite node
+                let scaledTile = SKSpriteNode(texture: texture)
+                scaledTile.size = CGSize(width: tileSize * tile.scale, height: tileSize * tile.scale)
+                scaledTile.position = CGPoint(x: CGFloat(x) * tileSize + tileSize/2,
+                                            y: CGFloat(y) * tileSize + tileSize/2)
+                scaledTile.zPosition = 1 // Above the base tile map
+                
+                addChild(scaledTile)
+                scaledTileNodes.append(scaledTile)
+            }
+        }
+    }
+    
+    /// Gets the appropriate texture for a tile type
+    private func getTextureForTile(tile: Tile, tileRefs: TileSetBuilder.TileRefs) -> SKTexture? {
+        let group: SKTileGroup
+        switch tile.kind {
+        case .floor:
+            // For scaled floor tiles, just use the first variant
+            group = tileRefs.floorVariants.first ?? tileRefs.floorVariants[0]
+        case .wall: group = tileRefs.wall
+        case .doorClosed: group = tileRefs.door
+        case .doorSecret: group = tileRefs.secretDoor
+        case .sidewalk: group = tileRefs.sidewalk
+        case .driveway: group = tileRefs.driveway
+        case .hidingArea: group = tileRefs.hidingArea
+        case .park: group = tileRefs.park
+        case .residential1: group = tileRefs.residential1
+        case .residential2: group = tileRefs.residential2
+        case .residential3: group = tileRefs.residential3
+        case .residential4: group = tileRefs.residential4
+        case .urban1: group = tileRefs.urban1
+        case .urban2: group = tileRefs.urban2
+        case .urban3: group = tileRefs.urban3
+        case .redLight: group = tileRefs.redLight
+        case .retail: group = tileRefs.retail
+        case .sidewalkTree: group = tileRefs.sidewalkTree
+        case .sidewalkHydrant: group = tileRefs.sidewalkHydrant
+        case .street: group = tileRefs.street
+        case .crosswalk: group = tileRefs.crosswalk
+        case .iceCreamTruck: group = tileRefs.iceCreamTruck
+        @unknown default:
+            return nil
+        }
+        
+        // Extract texture from tile group
+        return group.rules.first?.tileDefinitions.first?.textures.first
     }
 
     /// Creates particle effects for all fire hydrant tiles on the map

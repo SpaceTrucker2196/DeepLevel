@@ -101,4 +101,12 @@ struct DungeonConfig {
     
     /// Frequency of retail districts (0.0 to 1.0).
     var retailFrequency: Double = 0.35
+    
+    // MARK: - Tile Scaling Configuration
+    
+    /// Whether to enable tile scaling for double-size tiles.
+    var enableTileScaling: Bool = true
+    
+    /// Scale factor for tiles (1.0 = normal, 2.0 = double size).
+    var tileScaleFactor: CGFloat = 2.0
 }
