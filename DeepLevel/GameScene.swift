@@ -49,7 +49,10 @@ final class GameScene: SKScene {
     // FOV
     private var fogNode: SKSpriteNode?
     private var fogOfWar: FogOfWar?
-    private let fovRadius: Int = 5
+    private let fovRadius: Int = 4  // Reduced from 5 to 4 for better gameplay balance
+    
+    // Monster AI settings
+    private let monsterSeekingRange: Int = 5  // Distance in tiles within which monsters seek the player
     
     // Particle effects
     private var particleManager: ParticleEffectsManager?
@@ -512,7 +515,7 @@ final class GameScene: SKScene {
         let nextPosition = plannedPath[currentPathIndex]
         
         if shouldEvadeMonsters(playerPosition: nextPosition) {
-            if debugLogging { print("[GameScene] Monster within 2 tiles during path execution, seeking hiding spot") }
+            if debugLogging { print("[GameScene] Monster within seeking range during path execution, seeking hiding spot") }
             handleMonsterDetection()
             return
         }
@@ -536,6 +539,14 @@ final class GameScene: SKScene {
         } else {
             if debugLogging { print("[GameScene] Movement blocked, clearing path") }
             clearPlannedPath()
+            
+            // Try to find an alternative path to prevent freezing
+            if currentPathIndex < plannedPath.count {
+                let targetPosition = plannedPath.last!
+                if debugLogging { print("[GameScene] Attempting to find alternative path to (\(targetPosition.0), \(targetPosition.1))") }
+                clearPlannedPath()
+                planAndExecutePath(to: targetPosition)
+            }
         }
     }
     
@@ -554,7 +565,14 @@ final class GameScene: SKScene {
                                                          fromY: player.gridY,
                                                          toX: monster.gridX,
                                                          toY: monster.gridY)
-            if monsterCanSeePlayer && playerCanSeeMonster {
+            
+            // Check if monster is within seeking range
+            let dx = abs(monster.gridX - player.gridX)
+            let dy = abs(monster.gridY - player.gridY)
+            let distanceToMonster = dx + dy
+            let monsterWithinSeekingRange = distanceToMonster <= monsterSeekingRange
+            
+            if monsterCanSeePlayer && playerCanSeeMonster && monsterWithinSeekingRange {
                 return true
             }
         }
@@ -565,7 +583,8 @@ final class GameScene: SKScene {
         for monster in monsters {
             let dx = abs(monster.gridX - playerPosition.0)
             let dy = abs(monster.gridY - playerPosition.1)
-            if dx <= 2 && dy <= 2 { return true }
+            // Use seeking range for consistency with monster AI
+            if dx + dy <= monsterSeekingRange { return true }
         }
         return false
     }
@@ -733,13 +752,23 @@ final class GameScene: SKScene {
                                                   fromY: monster.gridY,
                                                   toX: player.gridX,
                                                   toY: player.gridY)
+            
+            // Calculate distance to player
+            let dx = abs(monster.gridX - player.gridX)
+            let dy = abs(monster.gridY - player.gridY)
+            let distanceToPlayer = dx + dy  // Manhattan distance
+            
+            // Check if player is within seeking range
+            let playerWithinSeekingRange = distanceToPlayer <= monsterSeekingRange
+            
             if canSeePlayer {
                 player.currentlySeen = true
             }
             
-            if canSeePlayer {
+            // Only seek player if they can see them AND player is within seeking range
+            if canSeePlayer && playerWithinSeekingRange {
                 monster.lastPlayerPosition = (player.gridX, player.gridY)
-                monster.roamTarget = nil
+                monster.roamTarget = nil  // Clear roam target when actively seeking
                 let path = Pathfinder.aStar(map: map,
                                             start: (monster.gridX, monster.gridY),
                                             goal: (player.gridX, player.gridY),
@@ -754,27 +783,41 @@ final class GameScene: SKScene {
                     }
                 }
             } else {
+                // If player was previously seen but is now out of seeking range or not visible
                 if let lastPos = monster.lastPlayerPosition {
-                    let path = Pathfinder.aStar(map: map,
-                                                start: (monster.gridX, monster.gridY),
-                                                goal: lastPos,
-                                                passable: createPassableFunction(for: monster))
-                    if path.count > 1 {
-                        let next = path[1]
-                        moveEntityWithTrail(monster, to: next)
-                        if next.0 == lastPos.0 && next.1 == lastPos.1 {
+                    // Only continue seeking last known position if it was recent and within range
+                    let lastPosDx = abs(monster.gridX - lastPos.0)
+                    let lastPosDy = abs(monster.gridY - lastPos.1)
+                    let distanceToLastPos = lastPosDx + lastPosDy
+                    
+                    // If we're close to the last known position or it's out of range, stop seeking
+                    if distanceToLastPos <= 1 || distanceToLastPos > monsterSeekingRange {
+                        monster.lastPlayerPosition = nil
+                        monster.roamTarget = nil  // Reset roam target for new random movement
+                    } else {
+                        // Continue moving to last known position
+                        let path = Pathfinder.aStar(map: map,
+                                                    start: (monster.gridX, monster.gridY),
+                                                    goal: lastPos,
+                                                    passable: createPassableFunction(for: monster))
+                        if path.count > 1 {
+                            let next = path[1]
+                            moveEntityWithTrail(monster, to: next)
+                            if next.0 == lastPos.0 && next.1 == lastPos.1 {
+                                monster.lastPlayerPosition = nil
+                            }
+                        } else {
                             monster.lastPlayerPosition = nil
                         }
-                    } else {
-                        monster.lastPlayerPosition = nil
                     }
                 } else {
+                    // No player position known, revert to random roaming
                     roamMonster(monster: monster, map: map)
                 }
             }
             
             // Particle effects for detection
-            if canSeePlayer {
+            if canSeePlayer && playerWithinSeekingRange {
                 particleManager?.addPoliceLight(to: monster)
             } else {
                 particleManager?.removePoliceLight(from: monster)
@@ -782,7 +825,10 @@ final class GameScene: SKScene {
         }
         
         let anyMonsterCanSeePlayer = monsters.contains {
-            FOV.hasLineOfSight(map: map,
+            let dx = abs($0.gridX - player.gridX)
+            let dy = abs($0.gridY - player.gridY)
+            let distance = dx + dy
+            return distance <= monsterSeekingRange && FOV.hasLineOfSight(map: map,
                                fromX: $0.gridX,
                                fromY: $0.gridY,
                                toX: player.gridX,
