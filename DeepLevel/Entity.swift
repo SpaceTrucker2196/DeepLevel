@@ -118,7 +118,7 @@ final class Charmed: Entity {
 
 /// Player entity controlled by user input.
 final class Player: Entity {
-    var inventory: [Item] = []
+    var inventory: [StoredItem] = []
     private var lastHealTime: TimeInterval = 0
     
     init(gridX: Int, gridY: Int, tileSize: CGFloat, scale: CGFloat = 1.0) {
@@ -148,11 +148,11 @@ final class Player: Entity {
     private func initializeStartingInventory(tileSize: CGFloat) {
         let startingItemDefs = ItemDatabase.randomItems(count: 3)
         for itemDef in startingItemDefs {
-            let item = Item(name: itemDef.name,
-                           description: itemDef.description,
-                           gridX: gridX, // Items start at player position conceptually
-                           gridY: gridY,
-                           tileSize: tileSize)
+            let item = StoredItem(name: itemDef.name,
+                                  description: itemDef.description,
+                                  gridX: gridX, // Items start at player position conceptually
+                                  gridY: gridY,
+                                  tileSize: tileSize)
             inventory.append(item)
         }
     }
@@ -160,14 +160,14 @@ final class Player: Entity {
     required init?(coder: NSCoder) { fatalError() }
 }
 
-/// Item entity that can be collected by the player.
-final class Item: Entity {
-    let name: String
-    let description: String
+/// Gameplay item entity renamed to StoredItem to avoid clash with Core Data Item.
+final class StoredItem: Entity { // formerly: Item
+    let title: String
+    let descript: String
     
     init(name: String, description: String, gridX: Int, gridY: Int, tileSize: CGFloat) {
-        self.name = name
-        self.description = description
+        self.title = name
+        self.descript = description
         super.init(kind: .item,
                    gridX: gridX,
                    gridY: gridY,

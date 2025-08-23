@@ -39,9 +39,9 @@ final class CityMapGenerator: DungeonGenerating {
             switch self {
             case .park: return config.parkFrequency
             case .residential1, .residential2, .residential3, .residential4:
-                return config.residentialFrequency / 4.0 // Split equally among 4 types
+                return config.residentialFrequency / 4.0
             case .urban1, .urban2, .urban3:
-                return config.urbanFrequency / 3.0 // Split equally among 3 types
+                return config.urbanFrequency / 3.0
             case .redLight: return config.redLightFrequency
             case .retail: return config.retailFrequency
             }
@@ -50,19 +50,11 @@ final class CityMapGenerator: DungeonGenerating {
     
     /// Generates a complete city map using the configured parameters.
     ///
-    /// Creates a grid-based urban environment with different district types,
-    /// 2-tile wide streets bordered by varied sidewalks, and lighting effects.
-    ///
-    /// - Parameters:
-    ///   - config: Configuration parameters for generation
-    ///   - rng: Random number generator for deterministic generation
-    /// - Returns: A complete city map ready for gameplay
     /// - Complexity: O(width * height)
     func generate(config: DungeonConfig, rng: inout RandomNumberGenerator) -> DungeonMap {
         let width = config.width
         let height = config.height
         
-        // Initialize map with walls
         var tiles = Array(repeating: Tile(kind: .wall), count: width * height)
         var rooms: [Rect] = []
         
@@ -71,7 +63,6 @@ final class CityMapGenerator: DungeonGenerating {
         applyShadowEffects(config: config, tiles: &tiles, rooms: rooms, width: width, height: height)
         applyRedLightEffects(config: config, tiles: &tiles, width: width, height: height)
         
-        // Find a suitable player start position
         let playerStart = findPlayerStart(tiles: tiles, width: width, height: height)
         
         return DungeonMap(
@@ -84,39 +75,25 @@ final class CityMapGenerator: DungeonGenerating {
     }
     
     /// Generates the city grid with different district types.
-    ///
-    /// Creates 10x10 city blocks arranged in a grid pattern, assigning district
-    /// types based on configured frequencies.
-    ///
-    /// - Parameters:
-    ///   - config: Generation configuration
-    ///   - rng: Random number generator
-    ///   - tiles: Tile array to modify
-    ///   - rooms: Room array to populate
     private func generateCityGrid(config: DungeonConfig, rng: inout RandomNumberGenerator, tiles: inout [Tile], rooms: inout [Rect]) {
         let baseBlockSize = config.cityMapBlockSize
         let streetWidth = config.cityMapStreetWidth + 1 // include one sidewalk on top
         let gridSpacing = baseBlockSize + streetWidth
         
-        // Calculate how many blocks fit in each dimension
         let blocksX = (config.width - streetWidth) / gridSpacing
         let blocksY = (config.height - streetWidth) / gridSpacing
         
-        // Create weighted district selection based on frequencies
         let districtWeights = createDistrictWeights(config: config)
         
-        // Generate city blocks
         for gridX in 0..<blocksX {
             for gridY in 0..<blocksY {
                 let x = gridX * gridSpacing + streetWidth / 2
                 let y = gridY * gridSpacing + streetWidth / 2
                 
-                // Determine block size based on position and scaling
                 let isTopHalf = gridY < blocksY / 2
                 var blockWidth = isTopHalf ? config.cityMapBlockSizeTop : config.cityMapBlockSizeBottom
                 var blockHeight = isTopHalf ? config.cityMapBlockSizeTop : config.cityMapBlockSizeBottom
                 
-                // Apply scaling if enabled - city blocks should be 2 tiles high and 4 tiles wide when double sized
                 if config.enableTileScaling {
                     blockWidth = 4
                     blockHeight = 2
@@ -124,7 +101,6 @@ final class CityMapGenerator: DungeonGenerating {
                 
                 let cityBlock = Rect(x: x, y: y, w: blockWidth, h: blockHeight)
                 
-                // Ensure the block fits within bounds
                 if x + blockWidth < config.width && y + blockHeight < config.height {
                     let districtType = selectDistrictType(weights: districtWeights, rng: &rng)
                     carveDistrict(cityBlock, districtType: districtType, into: &tiles, width: config.width, config: config, rng: &rng)
@@ -134,179 +110,165 @@ final class CityMapGenerator: DungeonGenerating {
         }
     }
     
-    /// Creates weighted array for district selection based on frequencies.
     private func createDistrictWeights(config: DungeonConfig) -> [(DistrictType, Double)] {
-        return DistrictType.allCases.map { district in
-            (district, district.frequency(from: config))
-        }.filter { $0.1 > 0 } // Remove districts with 0 frequency
+        DistrictType.allCases
+            .map { ($0, $0.frequency(from: config)) }
+            .filter { $0.1 > 0 }
     }
     
-    /// Selects a district type based on weighted probabilities.
     private func selectDistrictType(weights: [(DistrictType, Double)], rng: inout RandomNumberGenerator) -> DistrictType {
         let totalWeight = weights.reduce(0.0) { $0 + $1.1 }
         let random = Double.random(in: 0..<totalWeight, using: &rng)
-        
-        var accumulatedWeight = 0.0
+        var accumulated = 0.0
         for (district, weight) in weights {
-            accumulatedWeight += weight
-            if random < accumulatedWeight {
+            accumulated += weight
+            if random < accumulated {
                 return district
             }
         }
-        
-        // Fallback to first district if something goes wrong
         return weights.first?.0 ?? .park
     }
     
-    /// Carves a city block with the specified district type.
-    private func carveDistrict(_ block: Rect, districtType: DistrictType, into tiles: inout [Tile], width: Int, config: DungeonConfig, rng: inout RandomNumberGenerator) {
-        // For urban districts, randomly choose between urban1, urban2, and urban3
+    private func carveDistrict(_ block: Rect,
+                               districtType: DistrictType,
+                               into tiles: inout [Tile],
+                               width: Int,
+                               config: DungeonConfig,
+                               rng: inout RandomNumberGenerator) {
         var actualTileKind = districtType.tileKind
+        // FIX: Replaced invalid 'if case .urban1 = districtType || ...' that produced a Bool pattern error.
         if districtType == .urban1 || districtType == .urban2 || districtType == .urban3 {
             let urbanTypes: [TileKind] = [.urban1, .urban2, .urban3]
             actualTileKind = urbanTypes.randomElement(using: &rng) ?? .urban1
         }
         
-        // Determine scaling based on config and district type
         let shouldScale = config.enableTileScaling && shouldScaleDistrict(districtType)
         let scaleFactor = shouldScale ? config.tileScaleFactor : 1.0
         
+        let height = tiles.count / width
         for y in block.y..<(block.y + block.h) {
             for x in block.x..<(block.x + block.w) {
-                if x >= 0 && x < width && y >= 0 && y < tiles.count / width {
-                    let idx = y * width + x
-                    tiles[idx].kind = actualTileKind
-                    tiles[idx].scale = scaleFactor
-                    
-                    // Add hiding spots to parks (50% chance per park block)
-                    if districtType == .park && Double.random(in: 0..<1, using: &rng) < 0.5 {
-                        tiles[idx].kind = .hidingArea
-                        tiles[idx].scale = 1.0 // Hiding spots are always single size
-                    }
+                guard x >= 0, x < width, y >= 0, y < height else { continue }
+                let idx = y * width + x
+                tiles[idx].kind = actualTileKind
+                tiles[idx].scale = scaleFactor
+                
+                if districtType == .park && Double.random(in: 0..<1, using: &rng) < 0.5 {
+                    tiles[idx].kind = .hidingArea
+                    tiles[idx].scale = 1.0
                 }
             }
         }
         
-        // Add ice cream trucks to 25% of park blocks
         if districtType == .park && Double.random(in: 0..<1, using: &rng) < 0.25 {
-            // Place ice cream truck at a random position within the park block
             let truckX = Int.random(in: block.x..<(block.x + block.w), using: &rng)
             let truckY = Int.random(in: block.y..<(block.y + block.h), using: &rng)
-            
-            if truckX >= 0 && truckX < width && truckY >= 0 && truckY < tiles.count / width {
+            let height = tiles.count / width
+            if truckX >= 0, truckX < width, truckY >= 0, truckY < height {
                 let idx = truckY * width + truckX
                 tiles[idx].kind = .iceCreamTruck
-                tiles[idx].scale = 1.0 // Ice cream trucks are always single tile size
+                tiles[idx].scale = 1.0
             }
         }
     }
     
-    /// Determines if a district type should be scaled
     private func shouldScaleDistrict(_ districtType: DistrictType) -> Bool {
         switch districtType {
-        case .urban1, .urban2, .urban3, .residential1, .residential2, .residential3, .residential4, .redLight, .retail:
+        case .urban1, .urban2, .urban3,
+             .residential1, .residential2, .residential3, .residential4,
+             .redLight, .retail:
             return true
         case .park:
-            return false // Parks should always be single tile sized
+            return false
         }
     }
     
     /// Generates streets and sidewalks between city blocks.
-    /// Sidewalks only appear on the bottom border of city blocks (top part of horizontal streets).
+    /// Sidewalks only appear on the top row of each horizontal street (acting as the bottom border of blocks above).
     /// Vertical streets have no sidewalks.
-    private func generateStreetsAndSidewalks(config: DungeonConfig, rng: inout RandomNumberGenerator, tiles: inout [Tile], width: Int, height: Int) {
+    private func generateStreetsAndSidewalks(config: DungeonConfig,
+                                             rng: inout RandomNumberGenerator,
+                                             tiles: inout [Tile],
+                                             width: Int,
+                                             height: Int) {
         let blockSize = config.cityMapBlockSize
         let streetWidth = config.cityMapStreetWidth
-        let totalWidth = streetWidth + 1 // street + one sidewalk on top only
+        let totalWidth = streetWidth + 1 // street + one sidewalk row
         let gridSpacing = blockSize + totalWidth
         
         let blocksX = (width - totalWidth) / gridSpacing
         let blocksY = (height - totalWidth) / gridSpacing
         
-        // Generate horizontal streets with sidewalk only on top (bottom border of city blocks)
+        // Horizontal streets
         for gridY in 0...blocksY {
             let streetCenterY = gridY * gridSpacing
             let streetStartY = streetCenterY - totalWidth / 2
-            
             for y in streetStartY..<(streetStartY + totalWidth) {
-                if y >= 0 && y < height {
-                    for x in 0..<width {
-                        let idx = y * width + x
-                        
-                        // Determine tile type based on position within street area
-                        let offsetFromStart = y - streetStartY
-                        if offsetFromStart == 0 {
-                            // Sidewalk only on the top (bottom border of city blocks above)
-                            tiles[idx].kind = chooseSidewalkType(rng: &rng)
-                        } else {
-                            // Street interior
-                            tiles[idx].kind = .street
-                        }
+                guard y >= 0, y < height else { continue }
+                for x in 0..<width {
+                    let idx = y * width + x
+                    let offset = y - streetStartY
+                    if offset == 0 {
+                        tiles[idx].kind = chooseSidewalkType(rng: &rng)
+                    } else {
+                        tiles[idx].kind = .street
                     }
                 }
             }
         }
         
-        // Generate vertical streets with no sidewalks
+        // Vertical streets (no sidewalks)
         for gridX in 0...blocksX {
             let streetCenterX = gridX * gridSpacing
             let streetStartX = streetCenterX - streetWidth / 2
-            
             for x in streetStartX..<(streetStartX + streetWidth) {
-                if x >= 0 && x < width {
-                    for y in 0..<height {
-                        let idx = y * width + x
-                        
-                        // Check if this is a street intersection (where vertical meets horizontal street)
-                        let isHorizontalStreet = tiles[idx].kind == .street
-                        
-                        if isHorizontalStreet {
-                            // This is an intersection - place a crosswalk
-                            tiles[idx].kind = .crosswalk
-                        } else if !tiles[idx].kind.isSidewalk {
-                            // Vertical streets have no sidewalks, only street tiles
-                            tiles[idx].kind = .street
-                        }
+                guard x >= 0, x < width else { continue }
+                for y in 0..<height {
+                    let idx = y * width + x
+                    if tiles[idx].kind == .street {
+                        tiles[idx].kind = .crosswalk
+                        continue
+                    }
+                    if tiles[idx].kind.isSidewalk {
+                        continue
+                    }
+                    if tiles[idx].kind != .crosswalk {
+                        tiles[idx].kind = .street
                     }
                 }
             }
         }
     }
     
-    /// Chooses a sidewalk type with variation (normal, tree, fire hydrant).
     private func chooseSidewalkType(rng: inout RandomNumberGenerator) -> TileKind {
-        let random = Double.random(in: 0..<1, using: &rng)
-        if random < 0.1 {
-            return .sidewalkTree
-        } else if random < 0.15 {
-            return .sidewalkHydrant
-        } else {
-            return .sidewalk
-        }
+        let r = Double.random(in: 0..<1, using: &rng)
+        if r < 0.1 { return .sidewalkTree }
+        if r < 0.15 { return .sidewalkHydrant }
+        return .sidewalk
     }
     
-    /// Applies shadow effects from city blocks to adjacent streets and sidewalks.
-    private func applyShadowEffects(config: DungeonConfig, tiles: inout [Tile], rooms: [Rect], width: Int, height: Int) {
+    private func applyShadowEffects(config: DungeonConfig,
+                                    tiles: inout [Tile],
+                                    rooms: [Rect],
+                                    width: Int,
+                                    height: Int) {
         for room in rooms {
-            // Apply shadow to tiles adjacent to city blocks
             for y in (room.y - 1)...(room.y + room.h) {
                 for x in (room.x - 1)...(room.x + room.w) {
-                    if x >= 0 && x < width && y >= 0 && y < height {
-                        let idx = y * width + x
-                        
-                        // Only apply shadow to street and sidewalk tiles
-                        if tiles[idx].kind == .street || tiles[idx].kind.isSidewalk {
-                            tiles[idx].colorCast = -0.3 // Shadow effect
-                        }
+                    guard x >= 0, x < width, y >= 0, y < height else { continue }
+                    let idx = y * width + x
+                    if tiles[idx].kind == .street || tiles[idx].kind.isSidewalk {
+                        tiles[idx].colorCast = -0.3
                     }
                 }
             }
         }
     }
     
-    /// Applies red light effects from red light districts to adjacent tiles.
-    private func applyRedLightEffects(config: DungeonConfig, tiles: inout [Tile], width: Int, height: Int) {
-        // First pass: find all red light district tiles
+    private func applyRedLightEffects(config: DungeonConfig,
+                                      tiles: inout [Tile],
+                                      width: Int,
+                                      height: Int) {
         var redLightTiles: [(Int, Int)] = []
         for y in 0..<height {
             for x in 0..<width {
@@ -316,30 +278,22 @@ final class CityMapGenerator: DungeonGenerating {
                 }
             }
         }
-        
-        // Second pass: apply red light effect to adjacent tiles
-        for (redX, redY) in redLightTiles {
+        for (rx, ry) in redLightTiles {
             for dy in -1...1 {
                 for dx in -1...1 {
-                    let x = redX + dx
-                    let y = redY + dy
-                    
-                    if x >= 0 && x < width && y >= 0 && y < height {
-                        let idx = y * width + x
-                        
-                        // Apply red light effect (positive color cast for light)
-                        if tiles[idx].kind != .redLight {
-                            tiles[idx].colorCast += 0.4 // Red light effect
-                        }
+                    let x = rx + dx
+                    let y = ry + dy
+                    guard x >= 0, x < width, y >= 0, y < height else { continue }
+                    let idx = y * width + x
+                    if tiles[idx].kind != .redLight {
+                        tiles[idx].colorCast += 0.4
                     }
                 }
             }
         }
     }
     
-    /// Finds a suitable player start position on a walkable tile.
     private func findPlayerStart(tiles: [Tile], width: Int, height: Int) -> (Int, Int) {
-        // Try to find a street or sidewalk tile
         for y in 0..<height {
             for x in 0..<width {
                 let idx = y * width + x
@@ -348,8 +302,6 @@ final class CityMapGenerator: DungeonGenerating {
                 }
             }
         }
-        
-        // Fallback to any walkable tile
         for y in 0..<height {
             for x in 0..<width {
                 let idx = y * width + x
@@ -358,22 +310,6 @@ final class CityMapGenerator: DungeonGenerating {
                 }
             }
         }
-        
-        // Ultimate fallback
         return (1, 1)
-    }
-}
-
-// MARK: - TileKind Extensions
-
-private extension TileKind {
-    /// Returns true if this tile kind is a sidewalk variant.
-    var isSidewalk: Bool {
-        switch self {
-        case .sidewalk, .sidewalkTree, .sidewalkHydrant:
-            return true
-        default:
-            return false
-        }
     }
 }

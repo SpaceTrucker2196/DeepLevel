@@ -29,10 +29,10 @@ enum GenerationAlgorithm {
 /// - Since: 1.0.0
 struct DungeonConfig {
     /// Width of the generated dungeon in tiles.
-    var width: Int = 180
+    var width: Int = 100
     
     /// Height of the generated dungeon in tiles.
-    var height: Int = 90
+    var height: Int = 80
     
     /// Maximum number of rooms to attempt during generation.
     var maxRooms: Int = 20
@@ -41,7 +41,7 @@ struct DungeonConfig {
     var roomMinSize: Int = 4
     
     /// Maximum size for room dimensions.
-    var roomMaxSize: Int = 10
+    var roomMaxSize: Int = 8
     
     /// Optional seed for deterministic generation. If nil, uses random seed.
     var seed: UInt64? = nil
@@ -53,10 +53,10 @@ struct DungeonConfig {
     var cellularFillProb: Double = 0.45
     
     /// Number of smoothing iterations for cellular automata algorithm.
-    var cellularSteps: Int = 5
+    var cellularSteps: Int = 4
     
     /// Maximum recursion depth for binary space partitioning algorithm.
-    var bspMaxDepth: Int = 5
+    var bspMaxDepth: Int = 4
     
     /// Probability of generating secret rooms (0.0 to 1.0).
     var secretRoomChance: Double = 0.08
@@ -68,10 +68,10 @@ struct DungeonConfig {
     var cityLayout: Bool = true
     
     /// Width of city streets in tiles (only used when cityLayout is true).
-    var streetWidth: Int = 4
+    var streetWidth: Int = 1
     
     /// Size of city blocks in tiles (only used when cityLayout is true).
-    var cityBlockSize: Int = 3
+    var cityBlockSize: Int = 4
     
     // MARK: - City Map Algorithm Configuration
     
@@ -79,22 +79,22 @@ struct DungeonConfig {
     var cityMapStreetWidth: Int = 1
     
     /// Size of city blocks for city map algorithm (in tiles).
-    var cityMapBlockSize: Int = 4
+    var cityMapBlockSize: Int = 3
     
     /// Size of city blocks at the top for city map algorithm (in tiles).
     var cityMapBlockSizeTop: Int = 4
     
     /// Size of city blocks at the bottom for city map algorithm (in tiles).
-    var cityMapBlockSizeBottom: Int = 8
+    var cityMapBlockSizeBottom: Int = 3
     
     /// Frequency of park districts (0.0 to 1.0).
-    var parkFrequency: Double = 0.15
+    var parkFrequency: Double = 0.1
     
     /// Frequency of residential districts (0.0 to 1.0).
     var residentialFrequency: Double = 0.35
     
     /// Frequency of urban districts (0.0 to 1.0).
-    var urbanFrequency: Double = 0.25
+    var urbanFrequency: Double = 0.75
     
     /// Frequency of red light districts (0.0 to 1.0).
     var redLightFrequency: Double = 0.5
@@ -105,7 +105,7 @@ struct DungeonConfig {
     // MARK: - Tile Scaling Configuration
     
     /// Whether to enable tile scaling for double-size tiles.
-    var enableTileScaling: Bool = true
+    var enableTileScaling: Bool = false
     
     /// Scale factor for tiles (1.0 = normal, 2.0 = double size).
     var tileScaleFactor: CGFloat = 2.0

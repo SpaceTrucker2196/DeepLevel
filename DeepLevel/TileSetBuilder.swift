@@ -60,7 +60,7 @@ final class TileSetBuilder {
         let sidewalkTreeTex  = SKTexture(imageNamed: "SidewalkTree")
         let sidewalkHydrantTex = SKTexture(imageNamed: "SidewalkFireHydrant")
         let streetTexture    = SKTexture(imageNamed: "SidewalkTop")
-        let crosswalkTexture = SKTexture(imageNamed: "Crosswalk")
+        let crosswalkTexture = SKTexture(imageNamed: "Street")
         let iceCreamTruckTexture = SKTexture(imageNamed: "IceCreamTruck")
         
         func makeGroup(named name: String, texture: SKTexture) -> SKTileGroup {
