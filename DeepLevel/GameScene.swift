@@ -36,7 +36,7 @@ final class GameScene: SKScene {
     private var tileRefs: TileSetBuilder.TileRefs?
     
     // Entities
-    private var player: Entity?
+    private var player: Player?
     private var monsters: [Monster] = []
     private var charmedEntities: [Charmed] = []
     
@@ -48,7 +48,7 @@ final class GameScene: SKScene {
     // FOV
     private var fogNode: SKSpriteNode?
     private var fogOfWar: FogOfWar?
-    private let fovRadius: Int = 3
+    private let fovRadius: Int = 5
     
     // Particle effects
     private var particleManager: ParticleEffectsManager?
@@ -348,11 +348,9 @@ final class GameScene: SKScene {
         guard let map = map else { return }
         player?.removeFromParent()
         let start = map.playerStart
-        let p = Entity(kind: .player,
-                       gridX: start.0,
+        let p = Player(gridX: start.0,
                        gridY: start.1,
-                       color: .clear,
-                       size: CGSize(width: tileSize*0.8, height: tileSize*0.8))
+                       tileSize: tileSize)
         addChild(p)
         p.moveTo(gridX: p.gridX, gridY: p.gridY, tileSize: tileSize, animated: false)
         player = p
@@ -1042,7 +1040,7 @@ final class GameScene: SKScene {
         }
     }
     
-    private func followPlayer(charmed: Charmed, map: DungeonMap, player: Entity) {
+    private func followPlayer(charmed: Charmed, map: DungeonMap, player: Player) {
         // Check if charmed is in hiding area - if so, stop movement
         let currentTile = map.tiles[map.index(x: charmed.gridX, y: charmed.gridY)]
         if currentTile.kind == .hidingArea {

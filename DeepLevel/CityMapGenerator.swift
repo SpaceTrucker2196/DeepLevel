@@ -153,19 +153,36 @@ final class CityMapGenerator: DungeonGenerating {
     
     /// Carves a city block with the specified district type.
     private func carveDistrict(_ block: Rect, districtType: DistrictType, into tiles: inout [Tile], width: Int, config: DungeonConfig, rng: inout RandomNumberGenerator) {
-        let tileKind = districtType.tileKind
+        // For urban districts, randomly choose between urban1, urban2, and urban3
+        var actualTileKind = districtType.tileKind
+        if districtType == .urban1 || districtType == .urban2 || districtType == .urban3 {
+            let urbanTypes: [TileKind] = [.urban1, .urban2, .urban3]
+            actualTileKind = urbanTypes.randomElement(using: &rng) ?? .urban1
+        }
         
         for y in block.y..<(block.y + block.h) {
             for x in block.x..<(block.x + block.w) {
                 if x >= 0 && x < width && y >= 0 && y < tiles.count / width {
                     let idx = y * width + x
-                    tiles[idx].kind = tileKind
+                    tiles[idx].kind = actualTileKind
                     
-                    // Add hiding spots to parks
-                    if districtType == .park && Double.random(in: 0..<1, using: &rng) < 0.15 {
+                    // Add hiding spots to parks (50% chance per park block)
+                    if districtType == .park && Double.random(in: 0..<1, using: &rng) < 0.5 {
                         tiles[idx].kind = .hidingArea
                     }
                 }
+            }
+        }
+        
+        // Add ice cream trucks to 25% of park blocks
+        if districtType == .park && Double.random(in: 0..<1, using: &rng) < 0.25 {
+            // Place ice cream truck at a random position within the park block
+            let truckX = Int.random(in: block.x..<(block.x + block.w), using: &rng)
+            let truckY = Int.random(in: block.y..<(block.y + block.h), using: &rng)
+            
+            if truckX >= 0 && truckX < width && truckY >= 0 && truckY < tiles.count / width {
+                let idx = truckY * width + truckX
+                tiles[idx].kind = .iceCreamTruck
             }
         }
     }
@@ -216,13 +233,16 @@ final class CityMapGenerator: DungeonGenerating {
                     for y in 0..<height {
                         let idx = y * width + x
                         
-                        // Skip if already processed as horizontal street or sidewalk
-                        if tiles[idx].kind == .street || tiles[idx].kind.isSidewalk {
-                            continue
-                        }
+                        // Check if this is a street intersection (where vertical meets horizontal street)
+                        let isHorizontalStreet = tiles[idx].kind == .street
                         
-                        // Vertical streets have no sidewalks, only street tiles
-                        tiles[idx].kind = .street
+                        if isHorizontalStreet {
+                            // This is an intersection - place a crosswalk
+                            tiles[idx].kind = .crosswalk
+                        } else if !tiles[idx].kind.isSidewalk {
+                            // Vertical streets have no sidewalks, only street tiles
+                            tiles[idx].kind = .street
+                        }
                     }
                 }
             }
