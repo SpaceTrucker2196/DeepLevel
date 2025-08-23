@@ -84,6 +84,7 @@ final class Monster: Entity {
     var pathNeedsUpdate: Bool = true
     var roamTarget: (Int, Int)? = nil
     var lastPlayerPosition: (Int, Int)? = nil
+    var lastPlayerSightingTime: TimeInterval = 0  // Track when player was last seen for timeout logic
 
     init(gridX: Int, gridY: Int, tileSize: CGFloat, scale: CGFloat = 1.0) {
         super.init(kind: .monster,

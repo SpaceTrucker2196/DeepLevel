@@ -53,6 +53,7 @@ final class GameScene: SKScene {
     
     // Monster AI settings
     private let monsterSeekingRange: Int = 5  // Distance in tiles within which monsters seek the player
+    private let playerSeekingTimeout: TimeInterval = 5.0  // Seconds to keep seeking after losing sight
     
     // Particle effects
     private var particleManager: ParticleEffectsManager?
@@ -768,6 +769,7 @@ final class GameScene: SKScene {
             // Only seek player if they can see them AND player is within seeking range
             if canSeePlayer && playerWithinSeekingRange {
                 monster.lastPlayerPosition = (player.gridX, player.gridY)
+                monster.lastPlayerSightingTime = CACurrentMediaTime()  // Update sighting time
                 monster.roamTarget = nil  // Clear roam target when actively seeking
                 let path = Pathfinder.aStar(map: map,
                                             start: (monster.gridX, monster.gridY),
@@ -785,13 +787,17 @@ final class GameScene: SKScene {
             } else {
                 // If player was previously seen but is now out of seeking range or not visible
                 if let lastPos = monster.lastPlayerPosition {
+                    let timeSinceLastSighting = CACurrentMediaTime() - monster.lastPlayerSightingTime
+                    
                     // Only continue seeking last known position if it was recent and within range
                     let lastPosDx = abs(monster.gridX - lastPos.0)
                     let lastPosDy = abs(monster.gridY - lastPos.1)
                     let distanceToLastPos = lastPosDx + lastPosDy
                     
-                    // If we're close to the last known position or it's out of range, stop seeking
-                    if distanceToLastPos <= 1 || distanceToLastPos > monsterSeekingRange {
+                    // Stop seeking if: too much time passed, we're at the last position, or it's out of range
+                    if timeSinceLastSighting > playerSeekingTimeout || 
+                       distanceToLastPos <= 1 || 
+                       distanceToLastPos > monsterSeekingRange {
                         monster.lastPlayerPosition = nil
                         monster.roamTarget = nil  // Reset roam target for new random movement
                     } else {
