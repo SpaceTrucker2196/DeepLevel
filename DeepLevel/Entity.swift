@@ -70,7 +70,7 @@ class Entity: SKSpriteNode {
         let target = CGPoint(x: CGFloat(gridX)*tileSize + tileSize/2,
                              y: CGFloat(gridY)*tileSize + tileSize/2)
         if animated {
-            run(SKAction.move(to: target, duration: 0.12))
+            run(SKAction.move(to: target, duration: 0.3)) // Increased duration for smoother movement
         } else {
             position = target
         }
@@ -119,6 +119,7 @@ final class Charmed: Entity {
 /// Player entity controlled by user input.
 final class Player: Entity {
     var inventory: [Item] = []
+    private var lastHealTime: TimeInterval = 0
     
     init(gridX: Int, gridY: Int, tileSize: CGFloat, scale: CGFloat = 1.0) {
         super.init(kind: .player,
@@ -131,6 +132,17 @@ final class Player: Entity {
         
         // Initialize with 3 random items
         initializeStartingInventory(tileSize: tileSize)
+    }
+    
+    /// Heal the player and add visual effects
+    func heal(amount: Int = 1) {
+        hp = min(hp + amount, 10) // Cap at max HP of 10
+        lastHealTime = CACurrentMediaTime()
+    }
+    
+    /// Check if player was recently healed (for effect timing)
+    func wasRecentlyHealed() -> Bool {
+        return CACurrentMediaTime() - lastHealTime < 10.0 // 10 seconds
     }
     
     private func initializeStartingInventory(tileSize: CGFloat) {

@@ -365,6 +365,13 @@ final class GameScene: SKScene {
         entity.moveTo(gridX: position.0, gridY: position.1, tileSize: tileSize)
         particleManager?.onEntityMove(entity, from: oldPosition)
     }
+    
+    /// Creates a passable function for pathfinding based on entity's blocking tiles
+    private func createPassableFunction(for entity: Entity) -> (TileKind) -> Bool {
+        return { tileKind in
+            return !entity.blockingTiles.contains(tileKind)
+        }
+    }
 
     /// Creates particle effects for all fire hydrant tiles on the map
     private func createFireHydrantEffects() {
@@ -532,6 +539,15 @@ final class GameScene: SKScene {
         
         let nextPosition = plannedPath[currentPathIndex]
         
+        // Check for monsters within 2 tiles and evade if necessary
+        if shouldEvadeMonsters(playerPosition: nextPosition) {
+            if debugLogging {
+                print("[GameScene] Monster within 2 tiles during path execution, seeking hiding spot")
+            }
+            handleMonsterDetection()
+            return
+        }
+        
         // Check for monsters that can see the player during movement
         if checkForMonsterDetection() {
             if debugLogging {
@@ -601,6 +617,18 @@ final class GameScene: SKScene {
             }
         }
         
+        return false
+    }
+    
+    /// Checks if the player should evade monsters within 2 tiles
+    private func shouldEvadeMonsters(playerPosition: (Int, Int)) -> Bool {
+        for monster in monsters {
+            let dx = abs(monster.gridX - playerPosition.0)
+            let dy = abs(monster.gridY - playerPosition.1)
+            if dx <= 2 && dy <= 2 {
+                return true
+            }
+        }
         return false
     }
     
@@ -782,6 +810,8 @@ final class GameScene: SKScene {
     }
     
     private func charmEntity(_ charmed: Charmed) {
+        guard let player = player else { return }
+        
         if !charmed.isCharmed {
             charmed.isCharmed = true
             charmedScore += 1  // Increment score when charming
@@ -795,8 +825,14 @@ final class GameScene: SKScene {
             // Add heart particle effect for charmed entity
             particleManager?.addCharmedHeartEffect(to: charmed)
             
-            updateHUD()  // Update HUD to reflect new score
-            if debugLogging { print("[GameScene] Entity charmed!") }
+            // Heal the player
+            player.heal(amount: 2)
+            
+            // Add pink glow effect to player
+            particleManager?.addPlayerHealingGlow(to: player)
+            
+            updateHUD()  // Update HUD to reflect new score and HP
+            if debugLogging { print("[GameScene] Entity charmed! Player healed to \(player.hp) HP") }
         }
     }
     
@@ -855,6 +891,13 @@ final class GameScene: SKScene {
                 player.currentlySeen = true
             }
             
+            // Add or remove police light based on visibility
+            if canSeePlayer {
+                particleManager?.addPoliceLight(to: monster)
+            } else {
+                particleManager?.removePoliceLight(from: monster)
+            }
+            
             if canSeePlayer {
                 // Monster can see player - pursue them
                 monster.lastPlayerPosition = (player.gridX, player.gridY)
@@ -862,38 +905,8 @@ final class GameScene: SKScene {
                 
                 let path = Pathfinder.aStar(map: map,
                                             start: (monster.gridX, monster.gridY),
-                                            goal: (player.gridX, player.gridY)) { kind in
-                    switch kind {
-                    case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
-                    case .floor, .sidewalk: return true
-                    case .park:
-                        return true
-                    case .residential1:
-                        return false
-                    case .residential2:
-                        return false
-                    case .residential4:
-                        return false
-                    case .residential3:
-                        return false
-                    case .urban1:
-                        return false
-                    case .urban2:
-                        return false
-                    case .urban3:
-                        return false
-                    case .redLight:
-                        return false
-                    case .retail:
-                        return false
-                    case .sidewalkTree:
-                        return true
-                    case .sidewalkHydrant:
-                        return true
-                    case .street:
-                        return true
-                    @unknown default: return false
-                    }
+                                            goal: (player.gridX, player.gridY),
+                                            passable: createPassableFunction(for: monster))
                 }
                 if path.count > 1 {
                     let next = path[1]
@@ -910,30 +923,8 @@ final class GameScene: SKScene {
                     // Try to move toward last known position
                     let path = Pathfinder.aStar(map: map,
                                                 start: (monster.gridX, monster.gridY),
-                                                goal: lastPos) { kind in
-                        switch kind {
-                        case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
-                        case .floor,
-                                .sidewalk,
-                                .street,
-                                .retail,
-                                .park,
-                                .redLight,
-                                .sidewalkHydrant,
-                                .sidewalkTree,
-                                .urban1,
-                                .urban2,
-                                .urban3 : return true
-                        case .residential1:
-                             return true
-                        case .residential2:
-                             return true
-                        case .residential3:
-                             return true
-                        case .residential4:
-                             return true
-                        @unknown default: return false
-                        }
+                                                goal: lastPos,
+                                                passable: createPassableFunction(for: monster))
                     }
                     if path.count > 1 {
                         let next = path[1]
@@ -977,12 +968,8 @@ final class GameScene: SKScene {
         // Move toward roam target
         let path = Pathfinder.aStar(map: map,
                                     start: (monster.gridX, monster.gridY),
-                                    goal: target) { kind in
-            switch kind {
-            case .wall, .doorClosed, .doorSecret, .driveway, .hidingArea: return false
-            case .floor, .sidewalk, .park,.redLight,.sidewalkHydrant, .sidewalkTree, .street : return true
-            @unknown default: return false
-            }
+                                    goal: target,
+                                    passable: createPassableFunction(for: monster))
         }
         
         if path.count > 1 {
@@ -1050,21 +1037,8 @@ final class GameScene: SKScene {
         // Use pathfinding to move toward the player
         let path = Pathfinder.aStar(map: map,
                                     start: (charmed.gridX, charmed.gridY),
-                                    goal: (player.gridX, player.gridY)) { kind in
-            switch kind {
-            case .wall, .doorClosed, .doorSecret, .driveway: return false
-            case .floor,
-                    .sidewalk,
-                    .hidingArea,
-                    .street,
-                    .doorSecret,
-                    .park,
-                    .redLight,
-                    .urban1,
-                    .urban2,
-                    .urban3: return true
-            @unknown default: return true
-            }
+                                    goal: (player.gridX, player.gridY),
+                                    passable: createPassableFunction(for: charmed))
         }
         
         if path.count > 1 {
@@ -1098,12 +1072,8 @@ final class GameScene: SKScene {
         // Move toward roam target
         let path = Pathfinder.aStar(map: map,
                                     start: (charmed.gridX, charmed.gridY),
-                                    goal: target) { kind in
-            switch kind {
-            case .wall, .doorClosed, .doorSecret, .driveway: return false
-            case .floor, .sidewalk, .hidingArea: return true
-            @unknown default: return true
-            }
+                                    goal: target,
+                                    passable: createPassableFunction(for: charmed))
         }
         
         if path.count > 1 {
@@ -1221,15 +1191,8 @@ final class GameScene: SKScene {
         // Find path using A* pathfinding
         let path = Pathfinder.aStar(map: map,
                                     start: (player.gridX, player.gridY),
-                                    goal: target) { kind in
-            switch kind {
-            case .wall, .doorClosed, .doorSecret, .driveway: return false
-            case .floor, .sidewalk, .hidingArea, .park, .street, 
-                 .sidewalkTree, .sidewalkHydrant, .redLight,
-                 .residential1, .residential2, .residential3, .residential4,
-                 .urban1, .urban2, .urban3, .retail: return true
-            @unknown default: return false
-            }
+                                    goal: target,
+                                    passable: createPassableFunction(for: player))
         }
         
         // If no path found or path is just the start position, fall back to old directional movement
