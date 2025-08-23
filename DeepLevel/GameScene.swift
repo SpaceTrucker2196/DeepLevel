@@ -536,6 +536,9 @@ final class GameScene: SKScene {
         
         // Check for monsters that can see the player during movement
         if checkForMonsterDetection() {
+            if debugLogging {
+                print("[GameScene] Monster detected during path execution, seeking hiding spot")
+            }
             handleMonsterDetection()
             return
         }
@@ -548,26 +551,36 @@ final class GameScene: SKScene {
             if currentPathIndex < footstepNodes.count {
                 let footstep = footstepNodes[currentPathIndex]
                 footstep.removeFromParent()
+                // Don't remove from array yet for performance - will be cleared when path completes
             }
             
             currentPathIndex += 1
             
             // Check if we've reached the end of the path
             if currentPathIndex >= plannedPath.count {
+                if debugLogging {
+                    print("[GameScene] Path execution completed")
+                }
                 clearPlannedPath()
             }
         } else {
             // Movement failed (blocked), clear the path
+            if debugLogging {
+                print("[GameScene] Movement blocked, clearing path")
+            }
             clearPlannedPath()
         }
     }
     
     /// Checks if any monster can see the player and vice versa.
     ///
+    /// Only triggers during path execution to avoid interrupting single steps.
+    ///
     /// - Returns: True if mutual line of sight exists between player and any monster
     private func checkForMonsterDetection() -> Bool {
         guard let player = player,
-              let map = map else { return false }
+              let map = map,
+              plannedPath.count > 2 else { return false } // Only check for longer paths
         
         for monster in monsters {
             // Check if monster can see player
@@ -603,10 +616,16 @@ final class GameScene: SKScene {
         
         // Find the nearest explored hiding spot
         if let hidingSpot = findNearestExploredHidingSpot() {
+            if debugLogging {
+                print("[GameScene] Found hiding spot at (\(hidingSpot.0), \(hidingSpot.1))")
+            }
             // Clear current path and plan route to hiding spot
             clearPlannedPath()
             planAndExecutePath(to: hidingSpot)
         } else {
+            if debugLogging {
+                print("[GameScene] No hiding spot found, stopping movement")
+            }
             // No hiding spot found, stop movement
             clearPlannedPath()
         }
@@ -629,7 +648,7 @@ final class GameScene: SKScene {
                 // Check if this is an explored hiding spot
                 if tile.explored && tile.providesConcealment {
                     let distance = abs(x - player.gridX) + abs(y - player.gridY)
-                    if distance < shortestDistance {
+                    if distance < shortestDistance && distance > 0 { // Don't select current position
                         shortestDistance = distance
                         nearestHidingSpot = (x, y)
                     }
@@ -638,6 +657,11 @@ final class GameScene: SKScene {
         }
         
         return nearestHidingSpot
+    }
+    
+    /// Cleans up path-related resources when the scene is about to be deallocated.
+    private func cleanupPathSystem() {
+        clearPlannedPath()
     }
     
     /// Attempts to move the player in the specified direction.
@@ -1154,8 +1178,7 @@ final class GameScene: SKScene {
         let location = touch.location(in: self)
         
         // Convert screen coordinates to grid coordinates
-        let gridX = Int((location.x - tileSize/2) / tileSize)
-        let gridY = Int((location.y - tileSize/2) / tileSize)
+        let (gridX, gridY) = screenToGrid(location)
         
         // Validate target position
         guard map.inBounds(gridX, gridY) else { return }
@@ -1168,11 +1191,14 @@ final class GameScene: SKScene {
     
     /// Converts screen coordinates to grid coordinates.
     ///
+    /// Accounts for camera position to ensure accurate coordinate conversion.
+    ///
     /// - Parameter location: Screen coordinates relative to the scene
     /// - Returns: Grid coordinates as (x, y) tuple
     private func screenToGrid(_ location: CGPoint) -> (Int, Int) {
-        let gridX = Int((location.x - tileSize/2) / tileSize)
-        let gridY = Int((location.y - tileSize/2) / tileSize)
+        // Convert coordinates relative to the scene (accounting for camera)
+        let gridX = Int(location.x / tileSize)
+        let gridY = Int(location.y / tileSize)
         return (gridX, gridY)
     }
     
@@ -1185,6 +1211,11 @@ final class GameScene: SKScene {
     private func planAndExecutePath(to target: (Int, Int)) {
         guard let player = player,
               let map = map else { return }
+        
+        // If we're already at the target, do nothing
+        if player.gridX == target.0 && player.gridY == target.1 {
+            return
+        }
         
         // Clear any existing path
         clearPlannedPath()
@@ -1203,8 +1234,8 @@ final class GameScene: SKScene {
             }
         }
         
-        // If no path found, fall back to old directional movement
-        if path.isEmpty || path.count == 1 {
+        // If no path found or path is just the start position, fall back to old directional movement
+        if path.isEmpty || path.count <= 1 {
             fallbackToDirectionalMovement(target: target)
             return
         }
@@ -1216,6 +1247,10 @@ final class GameScene: SKScene {
         
         // Create visual footsteps along the path
         createFootstepNodes()
+        
+        if debugLogging {
+            print("[GameScene] Planned path to (\(target.0), \(target.1)) with \(plannedPath.count) steps")
+        }
     }
     
     /// Creates visual footstep nodes along the planned path.
