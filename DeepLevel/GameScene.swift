@@ -932,14 +932,7 @@ final class GameScene: SKScene {
         camera.run(zoomAction)
     }
     
-    // MARK: - Public API for Testing
-    func getAvailableAlgorithms() -> [GenerationAlgorithm] {
-        return algorithms
-    }
-    
-    func getCurrentAlgorithmIndex() -> Int {
-        return pendingAlgoIndex
-    }
+//   ., 
 }
 
 // MARK: - CGPoint Lerp
