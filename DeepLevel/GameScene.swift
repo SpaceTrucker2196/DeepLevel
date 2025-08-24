@@ -1,5 +1,4 @@
 import SpriteKit
-import GameplayKit
 import QuartzCore
 
 /// The main game scene managing dungeon exploration gameplay.
@@ -931,6 +930,15 @@ final class GameScene: SKScene {
         let zoomAction = SKAction.scale(to: clampedScale, duration: 0.3)
         zoomAction.timingMode = .easeInEaseOut
         camera.run(zoomAction)
+    }
+    
+    // MARK: - Public API for Testing
+    func getAvailableAlgorithms() -> [GenerationAlgorithm] {
+        return algorithms
+    }
+    
+    func getCurrentAlgorithmIndex() -> Int {
+        return pendingAlgoIndex
     }
 }
 
