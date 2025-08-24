@@ -4,6 +4,27 @@
 
 A comprehensive dungeon generation and exploration game built with SpriteKit.
 
+## Controls
+
+DeepLevel features a simple and intuitive touch-based control system:
+
+### Movement
+- **Directional Tap**: Tap anywhere on screen to move continuously in that direction
+- **Stop Movement**: Tap on the player character to stop movement
+- Movement continues until hitting a boundary or obstacle
+
+### Camera
+- **Zoom In**: Double-tap on the top half of the screen
+- **Zoom Out**: Double-tap on the bottom half of the screen
+
+## Continuous Integration
+
+The project uses Travis CI for automated building and testing:
+- Builds for both iOS and macOS targets
+- Runs unit tests on each commit
+- Supports multiple Xcode versions
+- Automatic deployment pipeline ready
+
 ## Overview
 
 DeepLevel is a sophisticated dungeon generation system that provides multiple algorithms for creating diverse and engaging underground and above ground environments. The game features real-time exploration with field-of-view calculations, pathfinding AI, and interactive gameplay elements.
