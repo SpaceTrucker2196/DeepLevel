@@ -1,5 +1,4 @@
 import SpriteKit
-import GameplayKit
 import QuartzCore
 
 /// The main game scene managing dungeon exploration gameplay.
@@ -65,14 +64,10 @@ final class GameScene: SKScene {
     private var pendingAlgoIndex = 3  // Start with cityMap (index 3) to match DungeonConfig default
     private let algorithms: [GenerationAlgorithm] = [.roomsCorridors, .bsp, .cellular, .cityMap]
     
-    // Movement (tap or queued)
-    private var movementDir: (dx: Int, dy: Int) = (0,0)
-    
-    // Path planning for tap-to-move
-    private var plannedPath: [(Int, Int)] = []
-    private var footstepNodes: [SKSpriteNode] = []
-    private var currentPathIndex: Int = 0
-    private var isExecutingPath: Bool = false
+    // Movement direction for continuous movement
+    private var continuousMovementDir: (dx: Int, dy: Int) = (0,0)
+    private var lastTapTime: TimeInterval = 0
+    private let doubleTapInterval: TimeInterval = 0.3
     
     // Monster path timing
     private var lastMonsterPathUpdate: TimeInterval = 0
@@ -498,136 +493,22 @@ final class GameScene: SKScene {
     
     // MARK: - Movement / Combat
     private func updatePlayerMovement() {
-        if isExecutingPath && !plannedPath.isEmpty && currentPathIndex < plannedPath.count {
-            executeNextStepInPath()
-            return
-        }
-        guard movementDir.dx != 0 || movementDir.dy != 0 else { return }
-        tryMovePlayer(dx: movementDir.dx, dy: movementDir.dy)
-        movementDir = (0,0)
-    }
-    
-    private func executeNextStepInPath() {
-        guard let _ = player,
-              currentPathIndex < plannedPath.count else {
-            clearPlannedPath()
-            return
-        }
-        let nextPosition = plannedPath[currentPathIndex]
+        guard continuousMovementDir.dx != 0 || continuousMovementDir.dy != 0 else { return }
         
-        if shouldEvadeMonsters(playerPosition: nextPosition) {
-            if debugLogging { print("[GameScene] Monster within seeking range during path execution, seeking hiding spot") }
-            handleMonsterDetection()
-            return
-        }
+        // Try to move in the continuous direction
+        let success = tryMovePlayer(dx: continuousMovementDir.dx, dy: continuousMovementDir.dy)
         
-        if checkForMonsterDetection() {
-            if debugLogging { print("[GameScene] Monster detected during path execution, seeking hiding spot") }
-            handleMonsterDetection()
-            return
-        }
-        
-        let success = tryMovePlayerToPosition(nextPosition.0, nextPosition.1)
-        if success {
-            if currentPathIndex < footstepNodes.count {
-                footstepNodes[currentPathIndex].removeFromParent()
-            }
-            currentPathIndex += 1
-            if currentPathIndex >= plannedPath.count {
-                if debugLogging { print("[GameScene] Path execution completed") }
-                clearPlannedPath()
-            }
-        } else {
-            if debugLogging { print("[GameScene] Movement blocked, clearing path") }
-            clearPlannedPath()
-            
-            // Try to find an alternative path to prevent freezing
-            if currentPathIndex < plannedPath.count {
-                let targetPosition = plannedPath.last!
-                if debugLogging { print("[GameScene] Attempting to find alternative path to (\(targetPosition.0), \(targetPosition.1))") }
-                clearPlannedPath()
-                planAndExecutePath(to: targetPosition)
-            }
+        // Stop movement if blocked
+        if !success {
+            continuousMovementDir = (0,0)
         }
     }
+
+
     
-    private func checkForMonsterDetection() -> Bool {
-        guard let player = player,
-              let map = map,
-              plannedPath.count > 2 else { return false }
-        for monster in monsters {
-            let monsterCanSeePlayer = FOV.hasLineOfSight(map: map,
-                                                         fromX: monster.gridX,
-                                                         fromY: monster.gridY,
-                                                         toX: player.gridX,
-                                                         toY: player.gridY)
-            let playerCanSeeMonster = FOV.hasLineOfSight(map: map,
-                                                         fromX: player.gridX,
-                                                         fromY: player.gridY,
-                                                         toX: monster.gridX,
-                                                         toY: monster.gridY)
-            
-            // Check if monster is within seeking range
-            let dx = abs(monster.gridX - player.gridX)
-            let dy = abs(monster.gridY - player.gridY)
-            let distanceToMonster = dx + dy
-            let monsterWithinSeekingRange = distanceToMonster <= monsterSeekingRange
-            
-            if monsterCanSeePlayer && playerCanSeeMonster && monsterWithinSeekingRange {
-                return true
-            }
-        }
-        return false
-    }
-    
-    private func shouldEvadeMonsters(playerPosition: (Int, Int)) -> Bool {
-        for monster in monsters {
-            let dx = abs(monster.gridX - playerPosition.0)
-            let dy = abs(monster.gridY - playerPosition.1)
-            // Use seeking range for consistency with monster AI
-            if dx + dy <= monsterSeekingRange { return true }
-        }
-        return false
-    }
-    
-    private func handleMonsterDetection() {
-        if let hidingSpot = findNearestExploredHidingSpot() {
-            if debugLogging { print("[GameScene] Found hiding spot at (\(hidingSpot.0), \(hidingSpot.1))") }
-            clearPlannedPath()
-            planAndExecutePath(to: hidingSpot)
-        } else {
-            if debugLogging { print("[GameScene] No hiding spot found, stopping movement") }
-            clearPlannedPath()
-        }
-    }
-    
-    private func findNearestExploredHidingSpot() -> (Int, Int)? {
-        guard let player = player,
-              let map = map else { return nil }
-        var nearest: (Int, Int)?
-        var best = Int.max
-        for y in 0..<map.height {
-            for x in 0..<map.width {
-                let tile = map.tiles[map.index(x: x, y: y)]
-                if tile.explored && tile.providesConcealment {
-                    let dist = abs(x - player.gridX) + abs(y - player.gridY)
-                    if dist < best && dist > 0 {
-                        best = dist
-                        nearest = (x, y)
-                    }
-                }
-            }
-        }
-        return nearest
-    }
-    
-    private func cleanupPathSystem() {
-        clearPlannedPath()
-    }
-    
-    private func tryMovePlayer(dx: Int, dy: Int) {
-        guard let player = player else { return }
-        _ = tryMovePlayerToPosition(player.gridX + dx, player.gridY + dy)
+    private func tryMovePlayer(dx: Int, dy: Int) -> Bool {
+        guard let player = player else { return false }
+        return tryMovePlayerToPosition(player.gridX + dx, player.gridY + dy)
     }
     
     private func tryMovePlayerToPosition(_ nx: Int, _ ny: Int) -> Bool {
@@ -967,95 +848,91 @@ final class GameScene: SKScene {
     }
     
     // MARK: - Touch Input
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        let currentTime = CACurrentMediaTime()
+        
+        // Check for double tap
+        if currentTime - lastTapTime < doubleTapInterval {
+            handleDoubleTap(touch)
+            lastTapTime = 0 // Reset to prevent triple-tap issues
+        } else {
+            lastTapTime = currentTime
+        }
+    }
+    
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let player = player,
-              let touch = touches.first,
-              let map = map else { return }
+              let touch = touches.first else { return }
+        
+        let currentTime = CACurrentMediaTime()
+        
+        // Only handle single tap if it wasn't part of a double-tap
+        if currentTime - lastTapTime > doubleTapInterval {
+            handleDirectionalTap(touch, player: player)
+        }
+    }
+    
+    private func handleDoubleTap(_ touch: UITouch) {
         let location = touch.location(in: self)
-        let (gridX, gridY) = screenToGrid(location)
-        guard map.inBounds(gridX, gridY) else { return }
-        let targetTile = map.tiles[map.index(x: gridX, y: gridY)]
-        guard !targetTile.blocksMovement else { return }
-        planAndExecutePath(to: (gridX, gridY))
+        let screenHeight = size.height
+        
+        // Check if tap is in top or bottom half of screen
+        if location.y > screenHeight * 0.5 {
+            // Top half - zoom in
+            zoomCamera(zoomIn: true)
+        } else {
+            // Bottom half - zoom out
+            zoomCamera(zoomIn: false)
+        }
     }
     
-    private func screenToGrid(_ location: CGPoint) -> (Int, Int) {
-        let gridX = Int(location.x / tileSize)
-        let gridY = Int(location.y / tileSize)
-        return (gridX, gridY)
-    }
-    
-    private func planAndExecutePath(to target: (Int, Int)) {
-        guard let player = player,
-              let map = map else { return }
-        if player.gridX == target.0 && player.gridY == target.1 { return }
-        clearPlannedPath()
-        let path = Pathfinder.aStar(map: map,
-                                    start: (player.gridX, player.gridY),
-                                    goal: target,
-                                    passable: createPassableFunction(for: player))
-        if path.isEmpty || path.count <= 1 {
-            fallbackToDirectionalMovement(target: target)
+    private func handleDirectionalTap(_ touch: UITouch, player: Player) {
+        let location = touch.location(in: self)
+        let playerScreenPos = CGPoint(
+            x: CGFloat(player.gridX) * tileSize + tileSize/2,
+            y: CGFloat(player.gridY) * tileSize + tileSize/2
+        )
+        
+        // Check if tapping on or very close to the player - if so, stop movement
+        let distanceToPlayer = hypot(location.x - playerScreenPos.x, location.y - playerScreenPos.y)
+        if distanceToPlayer < tileSize {
+            continuousMovementDir = (0, 0)
             return
         }
-        plannedPath = Array(path.dropFirst())
-        currentPathIndex = 0
-        isExecutingPath = true
-        createFootstepNodes()
-        if debugLogging {
-            print("[GameScene] Planned path to (\(target.0), \(target.1)) with \(plannedPath.count) steps")
-        }
-    }
-    
-    private func createFootstepNodes() {
-        clearFootstepNodes()
-        for (index, position) in plannedPath.enumerated() {
-            let footstep = createFootstepNode(at: position, index: index)
-            addChild(footstep)
-            footstepNodes.append(footstep)
-        }
-    }
-    
-    private func createFootstepNode(at position: (Int, Int), index: Int) -> SKSpriteNode {
-        let footstep = SKSpriteNode(color: .systemYellow, size: CGSize(width: tileSize * 0.3, height: tileSize * 0.3))
-        footstep.position = CGPoint(
-            x: CGFloat(position.0) * tileSize + tileSize/2,
-            y: CGFloat(position.1) * tileSize + tileSize/2
-        )
-        footstep.zPosition = 15
-        footstep.alpha = 0.8
-        let pulse = SKAction.sequence([
-            SKAction.fadeAlpha(to: 0.4, duration: 0.5),
-            SKAction.fadeAlpha(to: 0.8, duration: 0.5)
-        ])
-        footstep.run(SKAction.repeatForever(pulse))
-        return footstep
-    }
-    
-    private func clearPlannedPath() {
-        plannedPath.removeAll()
-        clearFootstepNodes()
-        isExecutingPath = false
-        currentPathIndex = 0
-    }
-    
-    private func clearFootstepNodes() {
-        for footstep in footstepNodes {
-            footstep.removeFromParent()
-        }
-        footstepNodes.removeAll()
-    }
-    
-    private func fallbackToDirectionalMovement(target: (Int, Int)) {
-        guard let player = player else { return }
-        let dx = target.0 - player.gridX
-        let dy = target.1 - player.gridY
+        
+        // Calculate direction from player to tap location
+        let dx = location.x - playerScreenPos.x
+        let dy = location.y - playerScreenPos.y
+        
+        // Determine primary movement direction
         if abs(dx) > abs(dy) {
-            movementDir = (dx > 0 ? 1 : -1, 0)
+            // Horizontal movement
+            continuousMovementDir = dx > 0 ? (1, 0) : (-1, 0)
         } else {
-            movementDir = (0, dy > 0 ? 1 : -1)
+            // Vertical movement  
+            continuousMovementDir = dy > 0 ? (0, 1) : (0, -1)
         }
     }
+    
+    private func zoomCamera(zoomIn: Bool) {
+        guard let camera = camNode else { return }
+        
+        let currentScale = camera.xScale
+        let zoomFactor: CGFloat = zoomIn ? 0.8 : 1.25
+        let newScale = currentScale * zoomFactor
+        
+        // Clamp zoom levels
+        let minScale: CGFloat = 0.5
+        let maxScale: CGFloat = 2.0
+        let clampedScale = max(minScale, min(maxScale, newScale))
+        
+        let zoomAction = SKAction.scale(to: clampedScale, duration: 0.3)
+        zoomAction.timingMode = .easeInEaseOut
+        camera.run(zoomAction)
+    }
+    
+//   ., 
 }
 
 // MARK: - CGPoint Lerp

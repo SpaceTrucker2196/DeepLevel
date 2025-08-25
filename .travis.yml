@@ -1,0 +1,54 @@
+language: swift
+os: osx
+osx_image: xcode15.2
+
+xcode_project: DeepLevel.xcodeproj
+xcode_scheme: DeepLevel
+
+# Cache to speed up builds
+cache:
+  directories:
+    - $HOME/Library/Caches/CocoaPods
+    - Pods
+
+# Install dependencies if needed
+before_install:
+  - gem install cocoapods --pre --quiet
+  - pod --version
+
+# Build and test
+script:
+  - set -o pipefail
+  - xcodebuild clean build test -project DeepLevel.xcodeproj -scheme DeepLevel -destination 'platform=iOS Simulator,name=iPhone 15' | xcpretty
+  - xcodebuild clean build -project DeepLevel.xcodeproj -scheme DeepLevel -destination 'platform=macOS' | xcpretty
+
+# Upload coverage if needed
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+
+# Notification settings
+notifications:
+  email:
+    on_success: change
+    on_failure: always
+
+# Environment variables
+env:
+  global:
+    - LC_CTYPE=en_US.UTF-8
+    - LANG=en_US.UTF-8
+
+# Build matrix for different configurations
+matrix:
+  include:
+    - name: "iOS Build"
+      xcode_destination: platform=iOS Simulator,OS=17.2,name=iPhone 15
+    - name: "macOS Build"  
+      xcode_destination: platform=macOS
+
+# Branches to build
+branches:
+  only:
+    - main
+    - develop
+    - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
