@@ -1458,7 +1458,7 @@ struct DeepLevelTests {
             
             // Verify specific equipment names
             let validEquipmentNames = ["pH Test Kit", "Soil Probe", "Moisture Meter", 
-                                     "Soil Thermometer", "NPK Test Kit", "Soil Sample Bag"]
+            let validEquipmentNames = ItemDatabase.items(for: .soilTesting).map { $0.name }
             #expect(validEquipmentNames.contains(item.name), "Should be valid soil testing equipment")
         }
         
