@@ -13,6 +13,7 @@ struct ItemDatabase {
         case useful
         case food
         case curious
+        case soilTesting
     }
     
     /// Definition of an item with its properties.
@@ -70,7 +71,15 @@ struct ItemDatabase {
         ItemDefinition(name: "Marble", description: "A single glass marble, green with swirls.", category: .curious, value: 8),
         ItemDefinition(name: "Lottery Ticket", description: "A scratched lottery ticket. Looks like a loser.", category: .curious, value: 1),
         ItemDefinition(name: "USB Drive", description: "A tiny USB drive. Wonder what's on it?", category: .curious, value: 20),
-        ItemDefinition(name: "Toy Soldier", description: "A small plastic soldier missing his rifle.", category: .curious, value: 7)
+        ItemDefinition(name: "Toy Soldier", description: "A small plastic soldier missing his rifle.", category: .curious, value: 7),
+        
+        // Soil Testing Equipment
+        ItemDefinition(name: "pH Test Kit", description: "A portable soil pH testing kit with color strips.", category: .soilTesting, value: 25),
+        ItemDefinition(name: "Soil Probe", description: "A metal probe for testing soil compaction and depth.", category: .soilTesting, value: 30),
+        ItemDefinition(name: "Moisture Meter", description: "Digital device for measuring soil moisture content.", category: .soilTesting, value: 35),
+        ItemDefinition(name: "Soil Thermometer", description: "Specialized thermometer for measuring soil temperature.", category: .soilTesting, value: 20),
+        ItemDefinition(name: "NPK Test Kit", description: "Tests for nitrogen, phosphorus, and potassium levels.", category: .soilTesting, value: 40),
+        ItemDefinition(name: "Soil Sample Bag", description: "Sterile bag for collecting soil samples for analysis.", category: .soilTesting, value: 5)
     ]
     
     /// Get a random item from the database.
