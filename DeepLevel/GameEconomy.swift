@@ -222,7 +222,7 @@ final class GameEconomy: ObservableObject {
     }
 
     /// Apply penalty from Stedenko encounter.
-    func applyStedenkopenalty() {
+    func applyStedenkoPenalty() {
         let loss = min(cash, Int.random(in: 5...20))
         cash -= loss
         if !inventory.isEmpty, Bool.random() {

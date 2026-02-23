@@ -192,11 +192,11 @@ struct GameEconomyTests {
         #expect(!economy.recentEvents.isEmpty)
     }
 
-    @Test func testStedenkopenalty() async throws {
+    @Test func testStedenkoPenalty() async throws {
         let economy = GameEconomy()
         economy.cash = 50
         let startCash = economy.cash
-        economy.applyStedenkopenalty()
+        economy.applyStedenkoPenalty()
         #expect(economy.cash <= startCash)
         #expect(!economy.recentEvents.isEmpty)
     }

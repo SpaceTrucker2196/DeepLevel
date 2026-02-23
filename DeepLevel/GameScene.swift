@@ -691,7 +691,7 @@ final class GameScene: SKScene {
                     let next = path[1]
                     if next.0 == player.gridX && next.1 == player.gridY {
                         player.hp -= 1
-                        economy?.applyStedenkopenalty()
+                        economy?.applyStedenkoPenalty()
                         updateHUD()
                     } else {
                         moveEntityWithTrail(monster, to: next)
