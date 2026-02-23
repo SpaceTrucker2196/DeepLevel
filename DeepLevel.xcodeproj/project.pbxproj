@@ -23,10 +23,21 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXBuildFile section */
+		C81A3E0A2E59F00000000005 /* GameEconomy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81A3E0A2E59F00000000001 /* GameEconomy.swift */; };
+		C81A3E0A2E59F00000000006 /* DirectionalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81A3E0A2E59F00000000002 /* DirectionalController.swift */; };
+		C81A3E0A2E59F00000000007 /* GameSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81A3E0A2E59F00000000003 /* GameSidebar.swift */; };
+		C81A3E0A2E59F00000000008 /* GameEconomyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81A3E0A2E59F00000000004 /* GameEconomyTests.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		1F9CFFAE2E57863700BEE679 /* DeepLevel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeepLevel.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F9CFFC22E57863800BEE679 /* DeepLevelTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeepLevelTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F9CFFCC2E57863800BEE679 /* DeepLevelUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeepLevelUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C81A3E0A2E59F00000000001 /* GameEconomy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeepLevel/GameEconomy.swift"; sourceTree = "<group>"; };
+		C81A3E0A2E59F00000000002 /* DirectionalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeepLevel/DirectionalController.swift"; sourceTree = "<group>"; };
+		C81A3E0A2E59F00000000003 /* GameSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeepLevel/GameSidebar.swift"; sourceTree = "<group>"; };
+		C81A3E0A2E59F00000000004 /* GameEconomyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeepLevelTests/GameEconomyTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -92,6 +103,10 @@
 				1F9CFFC52E57863800BEE679 /* DeepLevelTests */,
 				1F9CFFCF2E57863800BEE679 /* DeepLevelUITests */,
 				1F9CFFAF2E57863700BEE679 /* Products */,
+				C81A3E0A2E59F00000000001 /* GameEconomy.swift */,
+				C81A3E0A2E59F00000000002 /* DirectionalController.swift */,
+				C81A3E0A2E59F00000000003 /* GameSidebar.swift */,
+				C81A3E0A2E59F00000000004 /* GameEconomyTests.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -249,6 +264,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C81A3E0A2E59F00000000005 /* GameEconomy.swift in Sources */,
+				C81A3E0A2E59F00000000006 /* DirectionalController.swift in Sources */,
+				C81A3E0A2E59F00000000007 /* GameSidebar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,6 +274,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C81A3E0A2E59F00000000008 /* GameEconomyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
