@@ -894,10 +894,18 @@ final class GameScene: SKScene {
             y: CGFloat(player.gridY) * tileSize + tileSize/2
         )
         
-        // Check if tapping on or very close to the player - if so, stop movement
+        // Check if tapping on or very close to the player - if so, stop movement or perform soil test
         let distanceToPlayer = hypot(location.x - playerScreenPos.x, location.y - playerScreenPos.y)
         if distanceToPlayer < tileSize {
             continuousMovementDir = (0, 0)
+            
+            // Check if player can perform soil test at current location
+            if let map = map {
+                let currentTile = map.tiles[map.index(x: player.gridX, y: player.gridY)]
+                if currentTile.canTestSoil && player.hasSoilTestingEquipment() {
+                    performSoilTest(player: player, tile: currentTile, location: (player.gridX, player.gridY))
+                }
+            }
             return
         }
         
@@ -932,6 +940,69 @@ final class GameScene: SKScene {
         camera.run(zoomAction)
     }
     
+    // MARK: - Soil Testing
+    
+    /// Perform a soil test at the player's current location
+    private func performSoilTest(player: Player, tile: Tile, location: (Int, Int)) {
+        guard let soilProperties = tile.soilProperties else { return }
+        
+        // Perform the soil test using the first available equipment
+        if let result = player.performSoilTest(at: location, soilProperties: soilProperties) {
+            // Mark the soil as tested
+            if let map = map {
+                var mutableTile = map.tiles[map.index(x: location.0, y: location.1)]
+                if var properties = mutableTile.soilProperties {
+                    properties.hasBeenTested = true
+                    mutableTile.soilProperties = properties
+                    // Update the tile in the map
+                    map.tiles[map.index(x: location.0, y: location.1)] = mutableTile
+                }
+            }
+            
+            // Display the soil test result to the player
+            showSoilTestResult(result)
+            
+            if debugLogging {
+                print("[GameScene] Soil test performed at (\(location.0), \(location.1)) using \(result.equipmentUsed)")
+                print("[GameScene] Result: \(result.assessment)")
+            }
+        }
+    }
+    
+    /// Display soil test results to the player
+    private func showSoilTestResult(_ result: SoilTestResult) {
+        // Create a temporary label to show the test result
+        let resultLabel = SKLabelNode(fontNamed: "Arial")
+        resultLabel.text = result.assessment
+        resultLabel.fontSize = 16
+        resultLabel.fontColor = .white
+        resultLabel.position = CGPoint(x: 0, y: 100) // Position above player
+        resultLabel.zPosition = 1000 // Ensure it's on top
+        
+        // Add background for better readability
+        let background = SKShapeNode(rectOf: CGSize(width: resultLabel.frame.width + 20, height: 30))
+        background.fillColor = SKColor.black.withAlphaComponent(0.8)
+        background.strokeColor = .clear
+        background.position = resultLabel.position
+        background.zPosition = 999
+        
+        // Add to camera node so it stays in view
+        if let camera = camNode {
+            camera.addChild(background)
+            camera.addChild(resultLabel)
+            
+            // Animate the label appearance and removal
+            let fadeIn = SKAction.fadeAlpha(to: 1.0, duration: 0.3)
+            let wait = SKAction.wait(forDuration: 3.0)
+            let fadeOut = SKAction.fadeAlpha(to: 0.0, duration: 0.5)
+            let remove = SKAction.removeFromParent()
+            let sequence = SKAction.sequence([fadeIn, wait, fadeOut, remove])
+            
+            background.run(sequence)
+            resultLabel.run(sequence)
+        }
+    }
+
 //   ., 
 }
 

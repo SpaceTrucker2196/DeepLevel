@@ -1324,5 +1324,154 @@ struct DeepLevelTests {
         #expect(fovRadius < 5, "FOV radius should be optimized")
         #expect(fovRadius >= 3, "FOV radius should provide reasonable visibility")
     }
+    
+    /// Tests soil testing functionality for park tiles.
+    ///
+    /// Verifies that soil properties are generated for park tiles and that
+    /// players can perform soil tests using appropriate equipment.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testSoilTestingFunctionality() async throws {
+        // Create a city map with parks to test soil functionality
+        var config = DungeonConfig()
+        config.width = 30
+        config.height = 30
+        config.algorithm = .cityMap
+        config.parkFrequency = 1.0 // Ensure we get parks
+        
+        let generator = CityMapGenerator()
+        var rng = SystemRandomNumberGenerator()
+        let map = generator.generate(config: config, rng: &rng)
+        
+        // Find a park tile with soil properties
+        var parkTileFound = false
+        var testLocation: (Int, Int)? = nil
+        
+        for y in 0..<map.height {
+            for x in 0..<map.width {
+                let tile = map.tiles[map.index(x: x, y: y)]
+                if tile.canTestSoil && tile.soilProperties != nil {
+                    parkTileFound = true
+                    testLocation = (x, y)
+                    break
+                }
+            }
+            if parkTileFound { break }
+        }
+        
+        #expect(parkTileFound, "Should find at least one park tile with soil properties")
+        
+        guard let location = testLocation else {
+            return // Can't test further without a valid location
+        }
+        
+        // Create a player with soil testing equipment
+        let player = Player(gridX: location.0, gridY: location.1, tileSize: 32.0)
+        
+        // Verify player has soil testing equipment (from starting inventory)
+        #expect(player.hasSoilTestingEquipment(), "Player should start with soil testing equipment")
+        
+        // Get the soil properties from the tile
+        let tile = map.tiles[map.index(x: location.0, y: location.1)]
+        guard let soilProperties = tile.soilProperties else {
+            #expect(false, "Park tile should have soil properties")
+            return
+        }
+        
+        // Perform a soil test
+        let testResult = player.performSoilTest(at: location, soilProperties: soilProperties)
+        #expect(testResult != nil, "Soil test should return a result")
+        
+        if let result = testResult {
+            // Verify the test result contains expected data
+            #expect(result.gridX == location.0)
+            #expect(result.gridY == location.1)
+            #expect(!result.equipmentUsed.isEmpty)
+            #expect(!result.assessment.isEmpty)
+            
+            // Verify that the test was recorded in player's history
+            #expect(player.soilTestResults.count == 1)
+            #expect(player.soilTestResults.first?.gridX == location.0)
+            #expect(player.soilTestResults.first?.gridY == location.1)
+        }
+    }
+    
+    /// Tests soil properties generation and consistency.
+    ///
+    /// Verifies that soil properties are generated with realistic values
+    /// and that different properties have appropriate ranges.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testSoilPropertiesGeneration() async throws {
+        // Create multiple soil property instances to test randomization
+        let soilSamples = (0..<100).map { _ in SoilProperties() }
+        
+        // Test pH range (should be between 4.5 and 8.5)
+        let pHValues = soilSamples.map { $0.pH }
+        #expect(pHValues.allSatisfy { $0 >= 4.5 && $0 <= 8.5 }, "pH should be in realistic range")
+        
+        // Test moisture range (should be between 10.0 and 80.0)
+        let moistureValues = soilSamples.map { $0.moisture }
+        #expect(moistureValues.allSatisfy { $0 >= 10.0 && $0 <= 80.0 }, "Moisture should be in realistic range")
+        
+        // Test temperature range (should be between 5.0 and 25.0)
+        let temperatureValues = soilSamples.map { $0.temperature }
+        #expect(temperatureValues.allSatisfy { $0 >= 5.0 && $0 <= 25.0 }, "Temperature should be in realistic range")
+        
+        // Test that values are actually randomized (not all the same)
+        let uniquepH = Set(pHValues.map { Int($0 * 10) }) // Round to 1 decimal place for comparison
+        #expect(uniquepH.count > 1, "pH values should be randomized")
+        
+        // Test quality description generation
+        let qualityDescriptions = soilSamples.map { $0.qualityDescription }
+        let uniqueDescriptions = Set(qualityDescriptions)
+        #expect(uniqueDescriptions.count > 1, "Should generate different quality descriptions")
+        
+        // Test specific soil property initialization
+        let specificSoil = SoilProperties(pH: 7.0, moisture: 50.0, temperature: 20.0, 
+                                        nitrogen: 60.0, phosphorus: 40.0, potassium: 80.0, 
+                                        compaction: 30.0)
+        #expect(specificSoil.pH == 7.0)
+        #expect(specificSoil.moisture == 50.0)
+        #expect(specificSoil.qualityDescription.contains("Good"))
+    }
+    
+    /// Tests soil testing equipment functionality in ItemDatabase.
+    ///
+    /// Verifies that soil testing items are properly categorized and available
+    /// in the item database with appropriate properties.
+    ///
+    /// - Throws: Any errors encountered during test execution
+    @Test func testSoilTestingEquipment() async throws {
+        // Get all soil testing items
+        let soilTestingItems = ItemDatabase.randomItems(from: .soilTesting, count: 10)
+        
+        // Should return all available soil testing items (we added 6)
+        #expect(soilTestingItems.count >= 5, "Should have multiple soil testing items available")
+        
+        // Verify soil testing items have appropriate properties
+        for item in soilTestingItems {
+            #expect(item.category == .soilTesting)
+            #expect(item.value > 0, "Soil testing equipment should have value")
+            #expect(!item.name.isEmpty)
+            #expect(!item.description.isEmpty)
+            
+            // Verify specific equipment names
+            let validEquipmentNames = ["pH Test Kit", "Soil Probe", "Moisture Meter", 
+            let validEquipmentNames = ItemDatabase.items(for: .soilTesting).map { $0.name }
+            #expect(validEquipmentNames.contains(item.name), "Should be valid soil testing equipment")
+        }
+        
+        // Test that players can identify soil testing equipment
+        let player = Player(gridX: 0, gridY: 0, tileSize: 32.0)
+        let hasEquipment = player.hasSoilTestingEquipment()
+        
+        // Player should start with some soil testing equipment
+        #expect(hasEquipment, "Player should start with soil testing equipment")
+        
+        let availableEquipment = player.availableSoilTestingEquipment()
+        #expect(availableEquipment.count > 0, "Player should have soil testing equipment available")
+    }
 
 }
+

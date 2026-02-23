@@ -121,6 +121,7 @@ final class Charmed: Entity {
 final class Player: Entity {
     var inventory: [StoredItem] = []
     private var lastHealTime: TimeInterval = 0
+    var soilTestResults: [SoilTestResult] = []
     
     init(gridX: Int, gridY: Int, tileSize: CGFloat, scale: CGFloat = 1.0) {
         super.init(kind: .player,
@@ -146,9 +147,57 @@ final class Player: Entity {
         return CACurrentMediaTime() - lastHealTime < 10.0 // 10 seconds
     }
     
+    /// Check if player has any soil testing equipment
+    func hasSoilTestingEquipment() -> Bool {
+        return inventory.contains { item in
+            ["pH Test Kit", "Moisture Meter", "Soil Thermometer", "Soil Probe", "NPK Test Kit"].contains(item.title)
+        }
+    }
+    
+    /// Get available soil testing equipment
+    func availableSoilTestingEquipment() -> [StoredItem] {
+        return inventory.filter { item in
+            Player.soilTestingEquipmentNames.contains(item.title)
+        }
+    }
+    
+    /// Get available soil testing equipment
+    func availableSoilTestingEquipment() -> [StoredItem] {
+        return inventory.filter { item in
+            Player.soilTestingEquipmentNames.contains(item.title)
+        }
+    }
+    
+    /// Perform a soil test using the first available equipment
+    func performSoilTest(at location: (Int, Int), soilProperties: SoilProperties) -> SoilTestResult? {
+        guard let equipment = availableSoilTestingEquipment().first else {
+            return nil
+        }
+        
+        let result = SoilTestResult(location: location, equipment: equipment.title, soilProperties: soilProperties)
+        soilTestResults.append(result)
+        return result
+    }
+    
+    /// Perform a soil test using specific equipment
+    func performSoilTest(at location: (Int, Int), soilProperties: SoilProperties, using equipmentName: String) -> SoilTestResult? {
+        guard inventory.contains(where: { $0.title == equipmentName }) else {
+            return nil
+        }
+        
+        let result = SoilTestResult(location: location, equipment: equipmentName, soilProperties: soilProperties)
+        soilTestResults.append(result)
+        return result
+    }
+    
     private func initializeStartingInventory(tileSize: CGFloat) {
-        let startingItemDefs = ItemDatabase.randomItems(count: 3)
-        for itemDef in startingItemDefs {
+        // Start with 2 random items and 1 soil testing equipment
+        let randomItems = ItemDatabase.randomItems(count: 2)
+        let soilTestingItems = ItemDatabase.randomItems(from: .soilTesting, count: 1)
+        
+        let allStartingItems = randomItems + soilTestingItems
+        
+        for itemDef in allStartingItems {
             let item = StoredItem(name: itemDef.name,
                                   description: itemDef.description,
                                   gridX: gridX, // Items start at player position conceptually

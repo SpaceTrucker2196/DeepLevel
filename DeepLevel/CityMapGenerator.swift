@@ -153,9 +153,16 @@ final class CityMapGenerator: DungeonGenerating {
                 tiles[idx].kind = actualTileKind
                 tiles[idx].scale = scaleFactor
                 
+                // Add soil properties for park tiles
+                if districtType == .park {
+                    tiles[idx].soilProperties = SoilProperties()
+                }
+                
                 if districtType == .park && Double.random(in: 0..<1, using: &rng) < 0.5 {
                     tiles[idx].kind = .hidingArea
                     tiles[idx].scale = 1.0
+                    // Hiding areas in parks should also have soil properties
+                    tiles[idx].soilProperties = SoilProperties()
                 }
             }
         }

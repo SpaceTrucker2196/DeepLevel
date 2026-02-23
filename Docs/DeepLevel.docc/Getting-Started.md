@@ -87,6 +87,34 @@ if tile.explored {
 }
 ```
 
+### Soil Testing Feature
+
+DeepLevel includes a soil testing system for park areas that allows players to analyze soil quality:
+
+```swift
+// Players automatically start with soil testing equipment
+let player = Player(gridX: x, gridY: y, tileSize: 32.0)
+
+// Check if player has soil testing equipment
+if player.hasSoilTestingEquipment() {
+    print("Player has soil testing equipment available")
+}
+
+// Park tiles automatically include soil properties
+let tile = map.tiles[map.index(x: x, y: y)]
+if tile.canTestSoil {
+    // This tile can be tested (parks and hiding areas in parks)
+    if let soilProperties = tile.soilProperties {
+        // Perform soil test using available equipment
+        if let result = player.performSoilTest(at: (x, y), soilProperties: soilProperties) {
+            print("Soil test result: \(result.assessment)")
+        }
+    }
+}
+```
+
+Players can tap on themselves while standing in park areas to perform soil tests using their available equipment. Different equipment reveals different soil properties like pH, moisture, nutrients, and compaction.
+
 ## Next Steps
 
 - Explore different generation algorithms in <doc:Dungeon-Algorithms>
