@@ -154,13 +154,9 @@ final class Player: Entity {
         }
     }
     
-    /// Get available soil testing equipment
-    func availableSoilTestingEquipment() -> [StoredItem] {
-        return inventory.filter { item in
-            Player.soilTestingEquipmentNames.contains(item.title)
-        }
-    }
-    
+    /// Soil testing equipment names.
+    static let soilTestingEquipmentNames = ["pH Test Kit", "Moisture Meter", "Soil Thermometer", "Soil Probe", "NPK Test Kit"]
+
     /// Get available soil testing equipment
     func availableSoilTestingEquipment() -> [StoredItem] {
         return inventory.filter { item in

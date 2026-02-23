@@ -82,6 +82,9 @@ final class GameScene: SKScene {
     // Charmed entity tracking
     private var charmedScore: Int = 0
     
+    /// Economy bridge shared with SwiftUI sidebar.
+    var economy: GameEconomy?
+    
     // Initialization guard
     private var initialized = false
     
@@ -117,6 +120,16 @@ final class GameScene: SKScene {
     
     func getAvailableAlgorithms() -> [GenerationAlgorithm] {
         return algorithms
+    }
+
+    /// Set continuous movement direction from the D-pad controller.
+    func movePlayer(dx: Int, dy: Int) {
+        continuousMovementDir = (dx, dy)
+    }
+
+    /// Stop continuous movement.
+    func stopPlayer() {
+        continuousMovementDir = (0, 0)
     }
     
     // MARK: - Setup Helpers
@@ -461,6 +474,21 @@ final class GameScene: SKScene {
                    algo: algorithms[pendingAlgoIndex % algorithms.count],
                    charmedScore: charmedScore,
                    size: size)
+        syncEconomy()
+    }
+
+    /// Push current game state to the SwiftUI economy bridge.
+    private func syncEconomy() {
+        guard let player = player, let economy = economy else { return }
+        economy.hp = player.hp
+        economy.charmedScore = charmedScore
+        let algo = algorithms[pendingAlgoIndex % algorithms.count]
+        switch algo {
+        case .roomsCorridors: economy.currentAlgorithm = "Rooms"
+        case .bsp: economy.currentAlgorithm = "BSP"
+        case .cellular: economy.currentAlgorithm = "Cellular"
+        case .cityMap: economy.currentAlgorithm = "CityMap"
+        }
     }
     
     override func didChangeSize(_ oldSize: CGSize) {
@@ -545,6 +573,8 @@ final class GameScene: SKScene {
         markAdjacentTilesAsExplored()
         recomputeFOV()
         checkCharmedHealing()
+        economy?.updateDistrict(from: tile.kind)
+        economy?.advanceTurn()
         return true
     }
     
@@ -592,6 +622,7 @@ final class GameScene: SKScene {
             particleManager?.addCharmedHeartEffect(to: charmed)
             player.heal(amount: 2)
             particleManager?.addPlayerHealingGlow(to: player)
+            economy?.applyCharmBonus()
             updateHUD()
             if debugLogging { print("[GameScene] Entity charmed! Player healed to \(player.hp) HP") }
         }
@@ -660,6 +691,7 @@ final class GameScene: SKScene {
                     let next = path[1]
                     if next.0 == player.gridX && next.1 == player.gridY {
                         player.hp -= 1
+                        economy?.applyStedenkopenalty()
                         updateHUD()
                     } else {
                         moveEntityWithTrail(monster, to: next)
@@ -1002,6 +1034,27 @@ final class GameScene: SKScene {
             resultLabel.run(sequence)
         }
     }
+
+    // MARK: - macOS Keyboard Input
+    #if os(macOS)
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 123: continuousMovementDir = (-1, 0)  // left arrow
+        case 124: continuousMovementDir = (1, 0)   // right arrow
+        case 125: continuousMovementDir = (0, -1)  // down arrow
+        case 126: continuousMovementDir = (0, 1)   // up arrow
+        default: break
+        }
+    }
+
+    override func keyUp(with event: NSEvent) {
+        switch event.keyCode {
+        case 123, 124, 125, 126:
+            continuousMovementDir = (0, 0)
+        default: break
+        }
+    }
+    #endif
 
 //   ., 
 }
